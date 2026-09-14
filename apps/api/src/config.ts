@@ -8,6 +8,13 @@ function readNumber(name: string, fallback: number): number {
   return Number.isFinite(parsed) && parsed > 0 ? parsed : fallback
 }
 
+/** Reads a boolean env var: accepts `true`/`false` (case-insensitive); anything unset uses the fallback. */
+function readBoolean(name: string, fallback: boolean): boolean {
+  const raw = process.env[name]
+  if (raw === undefined || raw === '') return fallback
+  return raw.toLowerCase() === 'true'
+}
+
 export const config = {
   currency: process.env.STORE_CURRENCY ?? 'COP',
   /** The store only ships inside one country for now, so addresses take it by default. */
@@ -29,4 +36,12 @@ export const config = {
   /** Longest data URL accepted for a fursona reference photo or a finished design; not square-cropped like an avatar, so it allows more room. */
   customDesignImageMaxCharacters: readNumber('CUSTOM_DESIGN_IMAGE_MAX_CHARACTERS', 600_000),
   isProduction: process.env.NODE_ENV === 'production',
+  /**
+   * Whether the session cookie carries the `Secure` flag. It must track "am I served over
+   * HTTPS?", not "is this a production build": a production container served over plain HTTP
+   * (e.g. the local container group, or behind a TLS-terminating proxy that forwards HTTP)
+   * would otherwise emit a Secure cookie the browser refuses to send back, breaking login.
+   * Defaults to `isProduction` when unset, so existing environments keep their current behaviour.
+   */
+  sessionCookieSecure: readBoolean('SESSION_COOKIE_SECURE', process.env.NODE_ENV === 'production'),
 }

@@ -2,6 +2,67 @@
 
 Este archivo registra los cambios incluidos en cada commit solicitado. Las entradas se agregan antes de crear el commit.
 
+## Termo Kemono en el catalogo y la ficha de linea en el Hero
+
+- Llegaron dos fichas de diseno nuevas. La del termo Kemono es la ficha de un producto, asi que entra al catalogo: termo de acero inoxidable de 750 ml, cuatro colores (negro, blanco hueso, azul noche y verde olivo), en accesorios dentro de Wildspirit. Su imagen sale recortada de esa misma ficha, centrada sobre lienzo vertical 4:5 y servida en 1200px y 480px como el resto.
+- La otra es la ficha de la linea completa: una sola pieza de presentacion, no articulos sueltos. Abre la rotacion del Hero y nada mas; no se convierte en productos.
+- El Hero acepta ahora dos tipos de diapositiva. Las fotos de producto siguen llenando el panel (`cover`) y se amplian y desplazan como antes; una pieza que hay que leer entera, como la ficha, se muestra completa (`contain`) y crece hacia su tamano real (0.95 a 1) en vez de ampliarse por encima de el, que recortaria justo lo que esta ahi para mostrar, y no se desplaza, porque de la forma del panel depende hacia donde habria sitio. El zoom paso a variables CSS para que las dos compartan la misma animacion.
+- Las categorias pasan a seguir las secciones de la ficha, en su mismo orden: Camisetas, Sudaderas, Abrigos, Pantalones, Accesorios, Collares y Otros. Las que ya tenian productos se quedan como estaban; las que faltaban ("Sudaderas", "Collares" y "Otros") se abren vacias a proposito, para que un administrador les cargue lo que va dentro. Los busos que hoy existen siguen en "Abrigos": el seed no mueve productos ya creados.
+- Las fichas originales quedan versionadas en `apps/web/src/assets/sheets/`, igual que el banner de marca, como fuente para volver a recortar.
+- El precio del termo no esta en la ficha: es un marcador en el rango del resto del catalogo, anotado en `docs/pending-work.md`.
+- Bug visual en los filtros de `/shop`: al activar uno, su marcador `(1)` caia a un renglon propio y empujaba ese desplegable por debajo de los otros tres, desalineando la fila. Cada etiqueta es un contenedor de filtro (`Field`) en columna y cada elemento de adentro es un renglon suyo, asi que el marcador se agrupa ahora con el texto en un solo elemento y queda a su lado: "CATEGORIA (1)".
+
+## Pie de pagina fijo abajo y correcciones del middleware
+
+- El pie de pagina quedaba a mitad de pantalla en cualquier ruta mas corta que la ventana (bolsa vacia, cuenta, notificaciones, 404): hasta 370px de fondo vacio debajo. `Layout` era un bloque con `min-height: 100vh` y nada que ocupara el espacio sobrante. Ahora es una columna flexible y el `Outlet` va dentro de un `main` que crece, lo que ademas le da a la pagina el punto de referencia `main` que le faltaba.
+- Seguridad: el middleware compartia un solo cliente `httpx` entre todas las visitas, y su tarro de cookies guardaba el `Set-Cookie` de sesion que devolvia la API y lo reenviaba en la siguiente peticion de cualquier otra persona. Bastaba con que un administrador iniciara sesion para que un visitante sin cookie recibiera su cuenta en `GET /api/auth/me`. El cliente se construye ahora en un solo lugar (`build_api_client`) con un tarro que no guarda nada; las cookies solo viajan en la peticion a la que pertenecen.
+- La compresion de respuestas se perdia en el grupo de contenedores: `httpx` descomprime todo lo que recibe, asi que el JSON que Fastify enviaba comprimido llegaba al navegador en claro (5.970 bytes en vez de ~1.300 en `/api/products`), justo lo contrario de lo que busca `@fastify/compress` en redes moviles lentas. nginx comprime ahora en el borde y el middleware pide el cuerpo con `Accept-Encoding: identity` para no comprimir e inflar los mismos bytes.
+- `docker compose` fallaba en un clon limpio porque el servicio `middleware` exigia `apps/middleware/.env`, que esta en `.gitignore` (solo se versiona `.env.example`). Se marca como opcional: todos los valores tienen predeterminado y los dos que importan ya se definen en el propio compose.
+- `db:up` (`docker compose up -d`) levanta el grupo completo, no solo PostgreSQL; la documentacion decia lo contrario y ya lo refleja.
+- `apps/middleware` no tenia pruebas. Se agregan cuatro con pytest sobre la aplicacion FastAPI en proceso y la API simulada, que cubren el aislamiento de sesiones entre visitas y las cabeceras que se reenvian, mas `npm run test:middleware` para ejecutarlas dentro de Docker.
+- Repaso completo de la documentacion, que se habia quedado atras respecto al middleware y al grupo de contenedores: el `README.md` separa el flujo de desarrollo (solo la base en Docker) del grupo completo y ya no dice que el middleware "solo expone `/health`"; `docs/api.md` documenta `POST /api/admin/products/:id/discount`, que faltaba, y corrige las bases de la API y el atributo `secure` de la cookie; `docs/development.md` deja de decir que Playwright no es dependencia del repositorio y que el rol solo se otorga por consola; `docs/pending-work.md` reescribe el punto de despliegue (el empaquetado ya existe, falta el servidor) y suma un punto para el middleware y MercadoPago.
+
+## Sin commit - Override de desarrollo: API directa y Swagger en el grupo
+
+- Se agrego `docker-compose.override.yml` (Compose lo aplica solo en local, no en un despliegue real). Republica el puerto de la API en `http://localhost:3000` para depurarla directo (Postman, curl) sin pasar por el middleware, y activa `ENABLE_API_DOCS=true` para que el Swagger UI (`/api/docs`) este disponible en el grupo pese a que la API corre con `NODE_ENV=production`.
+- Motivo: el grupo de contenedores es el entorno de desarrollo, pero la API corria como produccion, asi que el Swagger que documentabamos quedaba apagado (404) y no habia forma comoda de listar/probar endpoints. En produccion (solo el archivo base) la API sigue sin puerto publico y el Swagger apagado.
+- `docker compose up` (dev) aplica el override; `docker compose -f docker-compose.yml up` levanta el grupo cerrado como en produccion. Documentado en el README.
+
+## Sin commit - La cookie de sesion respeta HTTP/HTTPS en vez del build
+
+- El atributo `Secure` de la cookie de sesion dependia de `NODE_ENV === 'production'`. Como el grupo de contenedores corre la API en modo produccion pero se sirve por HTTP plano, la cookie salia `Secure` y el navegador no la reenviaba: el login parecia funcionar (201 al registrarse) pero `GET /api/auth/me` respondia sin cuenta. Se detecto al poner el middleware en el camino critico, pero el fallo era de la API, no del proxy (se reproducia tambien golpeando la API directamente).
+- Se agrego `SESSION_COOKIE_SECURE` (en `config.ts`, leida por `session.ts`): controla el flag `Secure` de forma independiente al build. Por defecto sigue a produccion, asi que los entornos que no la definen no cambian de comportamiento (los tests con `NODE_ENV=test` siguen sin `Secure`). El `docker-compose.yml` la pone en `false` para el grupo local (HTTP); detras de HTTPS real debe ir en `true`.
+- Verificado de punta a punta por el grupo (`web` -> nginx -> middleware -> API): registro y `GET /api/auth/me` ya devuelven la cuenta con la cookie de sesion, confirmando de paso que el proxy propaga bien `Cookie`/`Set-Cookie`. Los 61 tests de la API pasan.
+
+## Sin commit - El middleware pasa a ser el unico punto de entrada de la API
+
+- El navegador ya no habla directamente con la API: todo el trafico `/api/*` pasa por el middleware, que lo reenvia a Fastify. El nginx del `web` ahora hace proxy de `/api` al middleware (`http://middleware:8000`) en vez de a la API.
+- El middleware suma un proxy inverso transparente (`apps/middleware/app/proxy.py`, con `httpx`): reenvia metodo, ruta, query, cabeceras, cookies (`Cookie`/`Set-Cookie`) y cuerpo en ambos sentidos, y responde `502` si la API no esta disponible. Usa un cliente `httpx` compartido creado en el `lifespan` de FastAPI. El frontend no cambia: sigue usando la ruta relativa `/api` y el mismo origen conserva la cookie de sesion sin CORS.
+- La API deja de publicar su puerto en `docker-compose.yml` (`ports` -> `expose`): pasa a ser un servicio interno del grupo, solo alcanzable por el middleware. Se puede re-exponer temporalmente para depurar en aislamiento.
+- El orden de arranque queda `database` -> `api` -> `middleware` -> `web` (el `web` ahora depende del middleware sano).
+- La documentacion OpenAPI (Swagger) queda accesible a traves del middleware (`/api/docs`), util en desarrollo.
+- Compromiso asumido: el middleware entra al camino critico, asi que agrega un salto de red y el sobrecosto de Python a cada peticion, y es un punto unico de fallo; a cambio, la API no queda expuesta y hay un unico borde donde colgar limitacion de tasa y autenticacion. Pendiente: esos controles de borde y la integracion de MercadoPago.
+
+## Sin commit - Documentacion OpenAPI (Swagger) de la API
+
+- La API Fastify expone documentacion interactiva (Swagger UI) en `/api/docs`, con la especificacion OpenAPI en `/api/docs/json`. Se agregaron `@fastify/swagger` y `@fastify/swagger-ui` (versiones fijadas).
+- La doc se genera a partir de los mismos esquemas Zod que ya validan cada ruta (`apps/api/src/schemas.ts`), convertidos a JSON Schema en un helper nuevo (`apps/api/src/openapi.ts`) con `z.toJSONSchema`. No se duplica la definicion de esquemas.
+- Decision de diseno para no cambiar comportamiento: los esquemas se adjuntan a las rutas solo para documentar. `buildApp` instala un `validatorCompiler` no-op, de modo que Fastify no revalida con esos esquemas y la validacion real sigue en el `.parse()` de cada ruta. Asi los codigos y mensajes de error (`invalid_request`, `email_taken`, etc.) y las pruebas existentes no cambian.
+- Las ~27 rutas quedaron etiquetadas por area (auth, catalog, cart, checkout, admin, custom-design, artist, notifications, system) con un resumen cada una.
+- Swagger UI se sirve fuera de produccion; en un contenedor con `NODE_ENV=production` se habilita con `ENABLE_API_DOCS=true`, para no exponer la superficie completa de la API por defecto.
+
+## Sin commit - Grupo de contenedores completo y middleware de plano de control (FastAPI)
+
+- `docker-compose.yml` pasa de levantar solo PostgreSQL a un grupo de cuatro servicios: `database`, `api`, `web` y `middleware`, encadenados por healthchecks para que arranquen en orden (`database` sana -> `api` sana -> `web` y `middleware`).
+- Se agrego `apps/middleware`, un servicio FastAPI + uvicorn pensado como plano de control y punto de entrada de la futura pasarela MercadoPago. Hoy es andamiaje: expone `GET /health` (y `GET /` de identidad); no toca todavia catalogo, carrito ni la logica de negocio de la API Fastify, que se mantiene intacta. Dentro del grupo apunta a la API en `http://api:3000`.
+- La configuracion del middleware se lee de variables de entorno (`app/config.py` con `pydantic-settings`): `PORT`, `API_BASE_URL` y los placeholders de MercadoPago (`MERCADOPAGO_ACCESS_TOKEN`, `MERCADOPAGO_PUBLIC_KEY`, `MERCADOPAGO_WEBHOOK_SECRET`), sin valores hardcoded. Se agrego `.env.example` versionado y un `.env` local ignorado por git. Dependencias fijadas en `pyproject.toml` con cota superior explicita (FastAPI 0.115.x, uvicorn[standard] 0.34.x, pydantic-settings 2.7.x, httpx 0.28.x).
+- `apps/api` se contenerizo (`apps/api/Dockerfile`, multi-stage `node:22-slim`, construido desde la raiz del repo por los workspaces de npm). Al arrancar aplica las migraciones (`docker-entrypoint.sh` -> `drizzle-kit migrate`) y luego sirve; el seed de datos de demo queda como paso manual (`docker compose run --rm api npm run db:seed`). Healthcheck contra `/api/health`. `DATABASE_URL` y `CORS_ORIGIN` se inyectan por el compose.
+- `apps/web` se contenerizo (`apps/web/Dockerfile`, multi-stage): Vite compila el sitio y nginx lo sirve en el puerto 8080, haciendo de proxy inverso de `/api` al servicio `api`. Mantener el mismo origen evita tocar el frontend (usa la ruta relativa `/api/`) y conserva la cookie de sesion sin CORS.
+- Los cuatro servicios exponen un endpoint de salud medible: `/api/health` (api), `/` (web) y `/health` (middleware); la base usa `pg_isready`.
+- Se agregaron `.dockerignore` (raiz y por app) para no enviar `node_modules`, `dist`, `.git` ni `.env` al contexto de build.
+- El flujo de desarrollo `npm run dev` (Vite y Fastify en el host, base en Docker) no cambia; el grupo de contenedores es una segunda forma de levantar todo.
+- Pendiente fuera de este alcance: la integracion real de MercadoPago (creacion de preferencias, webhook con validacion de firma y endpoint interno en Fastify para marcar el pedido `paid`) y el rate limiting de borde.
+
 ## Correcciones al flujo de diseno personalizado
 
 - `CustomDesignRequestPage` pedia `pageSize: 100` al catalogo, pero la API lo limita a `config.catalogMaxPageSize` (60) y respondia 400: el desplegable de prenda quedaba siempre vacio y no se podia enviar ninguna solicitud. Ahora usa una constante que refleja ese tope.

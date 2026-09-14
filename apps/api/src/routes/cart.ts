@@ -5,6 +5,7 @@ import { availableUnits } from '../db/queries.js'
 import { cartItems, carts, inventoryItems, productImages, productVariants, products } from '../db/schema.js'
 import { DomainError } from '../errors.js'
 import { overridesFor, type Locale } from '../i18n.js'
+import { routeDoc } from '../openapi.js'
 import { cartItemRemovalSchema, cartItemSchema, cartItemUpdateSchema, localeQuerySchema, sessionSchema } from '../schemas.js'
 import { config } from '../config.js'
 
@@ -77,9 +78,9 @@ async function assertVariantHasStock(variantId: string, requestedQuantity: numbe
 }
 
 export function registerCartRoutes(app: FastifyInstance): void {
-  app.get('/api/cart/:sessionId', async (request) => readCart(sessionSchema.parse(request.params).sessionId, localeQuerySchema.parse(request.query).lang))
+  app.get('/api/cart/:sessionId', { schema: routeDoc({ tags: ['cart'], summary: 'Read the session cart', params: sessionSchema, querystring: localeQuerySchema }) }, async (request) => readCart(sessionSchema.parse(request.params).sessionId, localeQuerySchema.parse(request.query).lang))
 
-  app.post('/api/cart/items', async (request, reply) => {
+  app.post('/api/cart/items', { schema: routeDoc({ tags: ['cart'], summary: 'Add an item to the cart', body: cartItemSchema }) }, async (request, reply) => {
     const input = cartItemSchema.parse(request.body)
     const [cart] = await db.insert(carts).values({ sessionId: input.sessionId, currency: config.currency })
       .onConflictDoUpdate({ target: carts.sessionId, set: { updatedAt: new Date() } }).returning()
@@ -92,7 +93,7 @@ export function registerCartRoutes(app: FastifyInstance): void {
     return reply.code(201).send(await readCart(input.sessionId, localeQuerySchema.parse(request.query).lang))
   })
 
-  app.patch('/api/cart/items', async (request) => {
+  app.patch('/api/cart/items', { schema: routeDoc({ tags: ['cart'], summary: 'Update an item quantity (0 removes it)', body: cartItemUpdateSchema }) }, async (request) => {
     const input = cartItemUpdateSchema.parse(request.body)
     const [cart] = await db.select({ id: carts.id }).from(carts).where(eq(carts.sessionId, input.sessionId))
     if (!cart) throw new DomainError('cart_not_found', 'Cart not found', { sessionId: input.sessionId })
@@ -107,7 +108,7 @@ export function registerCartRoutes(app: FastifyInstance): void {
     return readCart(input.sessionId, localeQuerySchema.parse(request.query).lang)
   })
 
-  app.delete('/api/cart/items', async (request) => {
+  app.delete('/api/cart/items', { schema: routeDoc({ tags: ['cart'], summary: 'Remove an item from the cart', querystring: cartItemRemovalSchema }) }, async (request) => {
     const input = cartItemRemovalSchema.parse(request.query)
     const [cart] = await db.select({ id: carts.id }).from(carts).where(eq(carts.sessionId, input.sessionId))
     if (!cart) throw new DomainError('cart_not_found', 'Cart not found', { sessionId: input.sessionId })

@@ -31,7 +31,7 @@ function hashToken(token: string): string {
 }
 
 function cookieOptions(expiresAt: Date): CookieSerializeOptions {
-  return { httpOnly: true, sameSite: 'lax', path: '/', secure: config.isProduction, expires: expiresAt }
+  return { httpOnly: true, sameSite: 'lax', path: '/', secure: config.sessionCookieSecure, expires: expiresAt }
 }
 
 /** Issues a new token, keeps only its hash and sends the token back as an httpOnly cookie. */

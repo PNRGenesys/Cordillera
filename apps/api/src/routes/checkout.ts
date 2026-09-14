@@ -6,10 +6,11 @@ import { db } from '../db/client.js'
 import { nextOrderNumber } from '../db/queries.js'
 import { cartItems, carts, customers, inventoryItems, inventoryMovements, inventoryReservations, orderItems, orders, productVariants, restockRequests } from '../db/schema.js'
 import { DomainError } from '../errors.js'
+import { routeDoc } from '../openapi.js'
 import { checkoutSchema, restockRequestSchema } from '../schemas.js'
 
 export function registerCheckoutRoutes(app: FastifyInstance): void {
-  app.post('/api/checkout', async (request, reply) => {
+  app.post('/api/checkout', { schema: routeDoc({ tags: ['checkout'], summary: 'Place an order (atomic inventory reservation)', body: checkoutSchema }) }, async (request, reply) => {
     const input = checkoutSchema.parse(request.body)
     const order = await db.transaction(async (tx) => {
       const [cart] = await tx.select({ id: carts.id }).from(carts).where(eq(carts.sessionId, input.sessionId))
@@ -43,7 +44,7 @@ export function registerCheckoutRoutes(app: FastifyInstance): void {
     return reply.code(201).send({ number: order.number, status: order.status, totalCents: order.totalCents, currency: order.currency, reservationExpiresInMinutes: config.reservationTtlMs / 60_000 })
   })
 
-  app.post('/api/restock-requests', async (request, reply) => {
+  app.post('/api/restock-requests', { schema: routeDoc({ tags: ['checkout'], summary: 'Join the restock list for a variant', body: restockRequestSchema }) }, async (request, reply) => {
     const input = restockRequestSchema.parse(request.body)
     // A signed in customer is already identified by their email, so the form does not ask for it again.
     const account = await findSessionCustomer(request)

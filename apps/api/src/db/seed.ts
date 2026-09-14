@@ -42,6 +42,11 @@ const COLOR_ES: Record<string, string> = {
   'Heather Grey': 'Gris jaspeado',
   Yellow: 'Amarillo',
   Cream: 'Crema',
+  // Colours of the Kemono bottle sheet.
+  Black: 'Negro',
+  'Bone White': 'Blanco hueso',
+  Navy: 'Azul noche',
+  'Olive Green': 'Verde olivo',
 }
 
 const sizeGuideSeeds = [
@@ -94,12 +99,20 @@ const sizeGuideSeeds = [
   },
 ]
 
+/**
+ * One per section of the line sheet, in its order. The ones without products are opened empty on
+ * purpose: the seed only creates the section and an administrator loads what goes inside.
+ */
 const categorySeeds = [
   { slug: 't-shirts', name: 'T-shirts', es: 'Camisetas', position: 1, sizeGuideSlug: 'tops' },
-  { slug: 'outerwear', name: 'Outerwear', es: 'Abrigos', position: 2, sizeGuideSlug: 'outerwear' },
+  // Hoodies share the outerwear measurements; today's hooded pieces still sit under `outerwear`.
+  { slug: 'hoodies', name: 'Hoodies', es: 'Sudaderas', position: 2, sizeGuideSlug: 'outerwear' },
+  { slug: 'outerwear', name: 'Outerwear', es: 'Abrigos', position: 3, sizeGuideSlug: 'outerwear' },
   // Pants and accessories have no measurement sheet yet, so they ship without a size guide.
-  { slug: 'pants', name: 'Pants', es: 'Pantalones', position: 3, sizeGuideSlug: undefined },
-  { slug: 'accessories', name: 'Accessories', es: 'Accesorios', position: 4, sizeGuideSlug: undefined },
+  { slug: 'pants', name: 'Pants', es: 'Pantalones', position: 4, sizeGuideSlug: undefined },
+  { slug: 'accessories', name: 'Accessories', es: 'Accesorios', position: 5, sizeGuideSlug: undefined },
+  { slug: 'collars', name: 'Collars', es: 'Collares', position: 6, sizeGuideSlug: undefined },
+  { slug: 'other', name: 'Other', es: 'Otros', position: 7, sizeGuideSlug: undefined },
 ]
 
 const collectionSeeds = [
@@ -170,6 +183,12 @@ const productSeeds: ProductSeed[] = [
     slug: 'dalmata-rainbow-tee', name: 'Dalmata Rainbow Tee', description: 'Regular fit tee with a rainbow rib collar, blue ear inspired sleeve stripes and a coat texture print front and back.', composition: '100% premium cotton, pre shrunk',
     es: { name: 'Camiseta Dálmata Arcoíris', description: 'Camiseta de corte regular con cuello rib en degradado arcoíris, franjas azules en las mangas inspiradas en las orejas y textura de pelaje al frente y atrás.', composition: 'Algodón 100% premium, preencogido' },
     categorySlug: 't-shirts', collectionSlug: 'fauna-series', release: 'preorder', priceCents: 16900000, colors: ['Heather Grey'], sizes: TEE_SIZES, stockPerVariant: 6,
+  },
+  {
+    // Its own sheet: `apps/web/src/assets/sheets/kemono-bottle-sheet.jpg`.
+    slug: 'kemono-bottle', name: 'Kemono Thermal Bottle', description: '750 ml stainless steel bottle with a double insulating wall, a leak proof screw cap with integrated ears and a laser engraved coat design. The strap carries the Kemono name.', composition: 'High grade stainless steel, silicone seal',
+    es: { name: 'Termo Kemono', description: 'Termo de acero inoxidable de 750 ml con doble pared aislante, tapa de rosca a prueba de fugas con orejas integradas y diseño de pelaje en grabado láser. La correa lleva el nombre Kemono.', composition: 'Acero inoxidable de alta calidad, sello de silicona' },
+    categorySlug: 'accessories', collectionSlug: 'wildspirit', release: 'available', priceCents: 13900000, colors: ['Black', 'Bone White', 'Navy', 'Olive Green'], sizes: ONE_SIZE, stockPerVariant: 15,
   },
 ]
 

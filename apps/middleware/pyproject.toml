@@ -1,0 +1,29 @@
+[project]
+name = "cordillera-middleware"
+version = "0.1.0"
+description = "Control-plane middleware for Cordillera; entry point for the MercadoPago payment gateway."
+requires-python = ">=3.12,<3.13"
+
+# Dependencies are pinned to a compatible range with an explicit upper bound so
+# builds stay reproducible and never pick up a breaking major automatically.
+dependencies = [
+    "fastapi>=0.115.0,<0.116.0",
+    "uvicorn[standard]>=0.34.0,<0.35.0",
+    "pydantic-settings>=2.7.0,<3.0.0",
+    "httpx>=0.28.0,<0.29.0",
+]
+
+# Test-only dependencies. `anyio` already arrives with FastAPI; its pytest plugin is what
+# runs the async tests, so no extra async runner is needed.
+[project.optional-dependencies]
+test = ["pytest>=8.3.0,<9.0.0"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+
+[build-system]
+requires = ["setuptools>=69"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["app"]

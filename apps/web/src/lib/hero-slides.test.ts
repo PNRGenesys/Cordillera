@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { CatalogProductSummary } from '../store/catalog-api'
-import { buildHeroSlides, driftFor, HERO_SLIDE_COUNT } from './hero-slides'
+import { buildHeroSlides, driftFor, HERO_PRESENTATION_URL, HERO_SLIDE_COUNT, type HeroSlide } from './hero-slides'
 
 function product(slug: string, imageUrl: string | null): CatalogProductSummary {
   return {
@@ -23,43 +23,50 @@ function product(slug: string, imageUrl: string | null): CatalogProductSummary {
 }
 
 describe('buildHeroSlides', () => {
+  const ALT = 'Ficha de la linea'
+
   it('returns the number of slides the keyframes expect', () => {
-    const slides = buildHeroSlides([product('a', '/a.jpg'), product('b', '/b.jpg')])
+    const slides = buildHeroSlides([product('a', '/a.jpg'), product('b', '/b.jpg')], ALT)
     expect(slides).toHaveLength(HERO_SLIDE_COUNT)
   })
 
-  it('keeps the order the catalog returned', () => {
-    const slides = buildHeroSlides([product('a', '/a.jpg'), product('b', '/b.jpg'), product('c', '/c.jpg'), product('d', '/d.jpg')])
-    expect(slides.map((slide) => slide.url)).toEqual(['/a.jpg', '/b.jpg', '/c.jpg', '/d.jpg'])
+  it('opens with the line sheet and then keeps the order the catalog returned', () => {
+    const slides = buildHeroSlides([product('a', '/a.jpg'), product('b', '/b.jpg'), product('c', '/c.jpg'), product('d', '/d.jpg')], ALT)
+    expect(slides.map((slide) => slide.url)).toEqual([HERO_PRESENTATION_URL, '/a.jpg', '/b.jpg', '/c.jpg'])
   })
 
   it('cycles what it has when there are fewer images than slides', () => {
-    const slides = buildHeroSlides([product('a', '/a.jpg'), product('b', '/b.jpg')])
-    expect(slides.map((slide) => slide.url)).toEqual(['/a.jpg', '/b.jpg', '/a.jpg', '/b.jpg'])
+    const slides = buildHeroSlides([product('a', '/a.jpg')], ALT)
+    expect(slides.map((slide) => slide.url)).toEqual([HERO_PRESENTATION_URL, '/a.jpg', HERO_PRESENTATION_URL, '/a.jpg'])
   })
 
   it('uses the product name as the alternative text', () => {
-    expect(buildHeroSlides([product('a', '/a.jpg')])[0]).toEqual({ url: '/a.jpg', alt: 'Producto a' })
+    expect(buildHeroSlides([product('a', '/a.jpg')], ALT)[1]).toEqual({ url: '/a.jpg', alt: 'Producto a', fit: 'cover' })
   })
 
   it('skips products without an image instead of leaving a gap', () => {
-    const slides = buildHeroSlides([product('a', null), product('b', '/b.jpg')])
-    expect(slides.every((slide) => slide.url === '/b.jpg')).toBe(true)
+    const slides = buildHeroSlides([product('a', null), product('b', '/b.jpg')], ALT)
+    expect(slides.map((slide) => slide.url)).toEqual([HERO_PRESENTATION_URL, '/b.jpg', HERO_PRESENTATION_URL, '/b.jpg'])
   })
 
-  it('returns nothing when no product has an image', () => {
-    expect(buildHeroSlides([product('a', null)])).toEqual([])
+  it('leaves the line sheet on screen when no product has an image', () => {
+    const slides = buildHeroSlides([product('a', null)], ALT)
+    expect(slides).toEqual(Array.from({ length: HERO_SLIDE_COUNT }, () => ({ url: HERO_PRESENTATION_URL, alt: ALT, fit: 'contain' })))
   })
 })
 
 describe('driftFor', () => {
+  function slide(url: string): HeroSlide {
+    return { url, alt: url, fit: 'cover' }
+  }
+
   function amounts(url: string, index: number): number[] {
-    const drift = driftFor(url, index)
+    const drift = driftFor(slide(url), index)
     return [drift.fromX, drift.fromY, drift.toX, drift.toY].map((value) => Number.parseFloat(value))
   }
 
   it('gives the same slide the same direction every time, so a re-render never makes it jump', () => {
-    expect(driftFor('/a.jpg', 0)).toEqual(driftFor('/a.jpg', 0))
+    expect(driftFor(slide('/a.jpg'), 0)).toEqual(driftFor(slide('/a.jpg'), 0))
   })
 
   it('starts part way through the travel instead of at rest', () => {
@@ -77,9 +84,17 @@ describe('driftFor', () => {
 
   it('spreads slides over different directions instead of moving them all the same way', () => {
     const directions = new Set(['/a.jpg', '/b.jpg', '/c.jpg', '/d.jpg', '/e.jpg', '/f.jpg', '/g.jpg', '/h.jpg'].map((url, index) => {
-      const drift = driftFor(url, index)
+      const drift = driftFor(slide(url), index)
       return `${drift.toX}|${drift.toY}`
     }))
     expect(directions.size).toBeGreaterThan(2)
+  })
+})
+
+describe('driftFor on a slide shown whole', () => {
+  it('grows the line sheet into place without ever cropping it', () => {
+    const drift = driftFor({ url: HERO_PRESENTATION_URL, alt: 'ficha', fit: 'contain' }, 0)
+
+    expect(drift).toEqual({ fromX: '0%', fromY: '0%', toX: '0%', toY: '0%', scaleFrom: '0.95', scaleTo: '1' })
   })
 })

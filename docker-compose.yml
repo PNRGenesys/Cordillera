@@ -15,5 +15,82 @@ services:
       timeout: 5s
       retries: 10
 
+  api:
+    build:
+      # Built from the repo root so npm workspaces and the root lockfile resolve.
+      context: .
+      dockerfile: apps/api/Dockerfile
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      # Reaches the database over the compose network (service name "database").
+      DATABASE_URL: postgresql://cordillera:cordillera_dev@database:5432/cordillera
+      # The browser reaches the API through nginx -> middleware, same origin.
+      CORS_ORIGIN: http://localhost:8080
+      # The container group is served over plain HTTP, so the session cookie must
+      # not be Secure or the browser would never send it back. Set to true behind
+      # HTTPS in a real deployment.
+      SESSION_COOKIE_SECURE: "false"
+    # No published port: the API is internal to the compose network. Only the
+    # middleware talks to it; the browser never reaches it directly. For local
+    # development, docker-compose.override.yml republishes 3000 to the host so the
+    # API can be debugged directly; that override is not used in a real deployment.
+    expose:
+      - "3000"
+    depends_on:
+      database:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:3000/api/health',r=>process.exit(r.statusCode===200?0:1)).on('error',()=>process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
+
+  web:
+    build:
+      # Built from the repo root so npm workspaces and the root lockfile resolve.
+      context: .
+      dockerfile: apps/web/Dockerfile
+    ports:
+      - "8080:80"
+    depends_on:
+      # The web nginx proxies /api to the middleware, so it waits on the middleware
+      # (which in turn waits on the API).
+      middleware:
+        condition: service_healthy
+    healthcheck:
+      # 127.0.0.1 (not localhost) so BusyBox wget uses IPv4, which nginx listens on.
+      test: ["CMD", "wget", "--spider", "-q", "http://127.0.0.1:80/"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+  middleware:
+    build:
+      context: ./apps/middleware
+    env_file:
+      # Optional: every setting already has a default and the two that matter here are set below,
+      # so a fresh clone (where `.env` is gitignored and only `.env.example` is committed) still
+      # starts. Without `required: false` the whole file fails to load, which also broke `db:up`.
+      - path: ./apps/middleware/.env
+        required: false
+    environment:
+      PORT: 8000
+      # Overrides API_BASE_URL from .env: the API now lives in the compose network.
+      API_BASE_URL: http://api:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health').read()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
 volumes:
   postgres_data:

@@ -1,14 +1,15 @@
+# Applies to builds whose context is the repo root (api, web).
 node_modules/
+**/node_modules/
 dist/
+**/dist/
+.git/
 .env
 .env.local
+**/.env
+**/.env.local
 *.log
-.DS_Store
 apps/e2e/test-results/
 apps/e2e/playwright-report/
 apps/e2e/blob-report/
 apps/e2e/.cache/
-
-__pycache__/
-*.egg-info/
-.pytest_cache/

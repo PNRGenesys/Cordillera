@@ -7,6 +7,7 @@ import { db } from '../db/client.js'
 import { nextOrderNumber } from '../db/queries.js'
 import { customDesignRequests, customers, inventoryItems, inventoryMovements, inventoryReservations, notifications, orderItems, orders, productVariants } from '../db/schema.js'
 import { DomainError } from '../errors.js'
+import { routeDoc } from '../openapi.js'
 import { customDesignRequestSchema, idParamSchema, requestChangesSchema } from '../schemas.js'
 
 type ArtistCandidate = { id: string; firstName: string | null; lastName: string | null; pendingCount: number }
@@ -44,7 +45,7 @@ function artistName(artist: Pick<ArtistCandidate, 'firstName' | 'lastName'>): st
 }
 
 export function registerCustomDesignRoutes(app: FastifyInstance): void {
-  app.get('/api/custom-design/artists', async (request) => {
+  app.get('/api/custom-design/artists', { schema: routeDoc({ tags: ['custom-design'], summary: 'Available artists and the surcharge' }) }, async (request) => {
     await requireSessionCustomer(request)
     const artists = await findAvailableArtists()
     return {
@@ -53,7 +54,7 @@ export function registerCustomDesignRoutes(app: FastifyInstance): void {
     }
   })
 
-  app.post('/api/custom-design/requests', async (request, reply) => {
+  app.post('/api/custom-design/requests', { schema: routeDoc({ tags: ['custom-design'], summary: 'Create a custom design request and its order', body: customDesignRequestSchema }) }, async (request, reply) => {
     const account = await requireSessionCustomer(request)
     const input = customDesignRequestSchema.parse(request.body)
     if (!isCustomDesignWindowOpen()) throw new DomainError('outside_business_hours', 'Custom design requests are only open from 9am to 6pm (Colombia time)')
@@ -99,7 +100,7 @@ export function registerCustomDesignRoutes(app: FastifyInstance): void {
     })
   })
 
-  app.get('/api/custom-design/requests/:id', async (request) => {
+  app.get('/api/custom-design/requests/:id', { schema: routeDoc({ tags: ['custom-design'], summary: 'Custom design request detail', params: idParamSchema }) }, async (request) => {
     const account = await requireSessionCustomer(request)
     const { id } = idParamSchema.parse(request.params)
     const [found] = await db.select({
@@ -115,7 +116,7 @@ export function registerCustomDesignRoutes(app: FastifyInstance): void {
     return found
   })
 
-  app.post('/api/custom-design/requests/:id/approve', async (request) => {
+  app.post('/api/custom-design/requests/:id/approve', { schema: routeDoc({ tags: ['custom-design'], summary: 'Approve a delivered design', params: idParamSchema }) }, async (request) => {
     const account = await requireSessionCustomer(request)
     const { id } = idParamSchema.parse(request.params)
     const [found] = await db.select().from(customDesignRequests).where(eq(customDesignRequests.id, id))
@@ -132,7 +133,7 @@ export function registerCustomDesignRoutes(app: FastifyInstance): void {
     return updated
   })
 
-  app.post('/api/custom-design/requests/:id/request-changes', async (request) => {
+  app.post('/api/custom-design/requests/:id/request-changes', { schema: routeDoc({ tags: ['custom-design'], summary: 'Request changes on a delivered design', params: idParamSchema, body: requestChangesSchema }) }, async (request) => {
     const account = await requireSessionCustomer(request)
     const { id } = idParamSchema.parse(request.params)
     const input = requestChangesSchema.parse(request.body)

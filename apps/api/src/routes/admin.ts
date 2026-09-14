@@ -6,6 +6,7 @@ import { db } from '../db/client.js'
 import { availableUnits } from '../db/queries.js'
 import { categories, collections, customers, inventoryItems, inventoryMovements, inventoryReservations, orderItems, orders, productImages, productVariants, products } from '../db/schema.js'
 import { DomainError } from '../errors.js'
+import { routeDoc } from '../openapi.js'
 import { customerRoleUpdateSchema, idParamSchema, inventoryAdjustmentSchema, orderUpdateSchema, productCreateSchema, productDiscountSchema, productUpdateSchema, variantUpdateSchema } from '../schemas.js'
 
 type OrderStatus = (typeof orders.$inferSelect)['status']
@@ -129,12 +130,12 @@ async function findAdminCustomers() {
 }
 
 export function registerAdminRoutes(app: FastifyInstance): void {
-  app.get('/api/admin/products', { preHandler: guard }, async () => findAdminProducts())
+  app.get('/api/admin/products', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'List products with stock for the admin panel' }) }, async () => findAdminProducts())
 
-  app.get('/api/admin/customers', { preHandler: guard }, async () => findAdminCustomers())
+  app.get('/api/admin/customers', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'List customers with their roles' }) }, async () => findAdminCustomers())
 
   /** The only way to grant the `artist` role today; `admin` can still also be granted via `npm run admin:grant`. */
-  app.patch('/api/admin/customers/:id/role', { preHandler: guard }, async (request) => {
+  app.patch('/api/admin/customers/:id/role', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Change a customer role', params: idParamSchema, body: customerRoleUpdateSchema }) }, async (request) => {
     const { id } = idParamSchema.parse(request.params)
     const input = customerRoleUpdateSchema.parse(request.body)
     const [updated] = await db.update(customers).set({ role: input.role, updatedAt: new Date() }).where(eq(customers.id, id))
@@ -143,7 +144,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return updated
   })
 
-  app.patch('/api/admin/products/:id', { preHandler: guard }, async (request) => {
+  app.patch('/api/admin/products/:id', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Update a product', params: idParamSchema, body: productUpdateSchema }) }, async (request) => {
     const { id } = idParamSchema.parse(request.params)
     const input = productUpdateSchema.parse(request.body)
     const [updated] = await db.update(products).set({ ...input, updatedAt: new Date() }).where(eq(products.id, id)).returning()
@@ -151,7 +152,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return updated
   })
 
-  app.patch('/api/admin/variants/:id', { preHandler: guard }, async (request) => {
+  app.patch('/api/admin/variants/:id', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Update a variant (price, color, size)', params: idParamSchema, body: variantUpdateSchema }) }, async (request) => {
     const { id } = idParamSchema.parse(request.params)
     const input = variantUpdateSchema.parse(request.body)
     const [updated] = await db.update(productVariants).set({ ...input, updatedAt: new Date() }).where(eq(productVariants.id, id)).returning()
@@ -165,7 +166,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
    * `priceCents` otherwise), so re-applying a discount never compounds on top of a previous one.
    * `discountPercent: 0` restores the regular price and clears the discount.
    */
-  app.post('/api/admin/products/:id/discount', { preHandler: guard }, async (request) => {
+  app.post('/api/admin/products/:id/discount', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Set or clear a product discount', params: idParamSchema, body: productDiscountSchema }) }, async (request) => {
     const { id } = idParamSchema.parse(request.params)
     const input = productDiscountSchema.parse(request.body)
 
@@ -190,7 +191,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return updated
   })
 
-  app.post('/api/admin/inventory/adjustments', { preHandler: guard }, async (request) => {
+  app.post('/api/admin/inventory/adjustments', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Adjust stock with a note', body: inventoryAdjustmentSchema }) }, async (request) => {
     const input = inventoryAdjustmentSchema.parse(request.body)
     const [stock] = await db.update(inventoryItems).set({ onHand: sql`${inventoryItems.onHand} + ${input.quantity}`, updatedAt: new Date() })
       .where(and(eq(inventoryItems.variantId, input.variantId), sql`${inventoryItems.onHand} + ${input.quantity} >= ${inventoryItems.reserved}`)).returning()
@@ -199,7 +200,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return stock
   })
 
-  app.post('/api/admin/products', { preHandler: guard }, async (request, reply) => {
+  app.post('/api/admin/products', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Create a product with variants', body: productCreateSchema }) }, async (request, reply) => {
     const input = productCreateSchema.parse(request.body)
     const product = await db.transaction(async (tx) => {
       const [created] = await tx.insert(products).values({
@@ -219,9 +220,9 @@ export function registerAdminRoutes(app: FastifyInstance): void {
     return reply.code(201).send(product)
   })
 
-  app.get('/api/admin/orders', { preHandler: guard }, async () => findAdminOrders())
+  app.get('/api/admin/orders', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'List orders' }) }, async () => findAdminOrders())
 
-  app.patch('/api/admin/orders/:id', { preHandler: guard }, async (request) => {
+  app.patch('/api/admin/orders/:id', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Update an order status, carrier or tracking', params: idParamSchema, body: orderUpdateSchema }) }, async (request) => {
     const { id } = idParamSchema.parse(request.params)
     const input = orderUpdateSchema.parse(request.body)
 

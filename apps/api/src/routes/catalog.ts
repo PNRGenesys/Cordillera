@@ -5,6 +5,7 @@ import { availableUnits, productAvailableUnits } from '../db/queries.js'
 import { categories, collections, inventoryItems, productImages, productVariants, products, sizeGuides } from '../db/schema.js'
 import { DomainError } from '../errors.js'
 import { overridesFor, type Locale } from '../i18n.js'
+import { routeDoc } from '../openapi.js'
 import { catalogQuerySchema, localeQuerySchema, slugSchema } from '../schemas.js'
 
 type ProductImage = { url: string; alt: string | null; position: number }
@@ -43,7 +44,7 @@ async function findFacetsByProduct(productIds: string[], locale: Locale): Promis
 }
 
 export function registerCatalogRoutes(app: FastifyInstance): void {
-  app.get('/api/collections', async (request) => {
+  app.get('/api/collections', { schema: routeDoc({ tags: ['catalog'], summary: 'List collections', querystring: localeQuerySchema }) }, async (request) => {
     const { lang } = localeQuerySchema.parse(request.query)
     const rows = await db.select({ id: collections.id, name: collections.name, slug: collections.slug, tagline: collections.tagline, heroImageUrl: collections.heroImageUrl, releasedAt: collections.releasedAt, featured: collections.featured, translations: collections.translations })
       .from(collections).orderBy(desc(collections.featured), desc(collections.releasedAt))
@@ -54,7 +55,7 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
     })
   })
 
-  app.get('/api/categories', async (request) => {
+  app.get('/api/categories', { schema: routeDoc({ tags: ['catalog'], summary: 'List categories', querystring: localeQuerySchema }) }, async (request) => {
     const { lang } = localeQuerySchema.parse(request.query)
     const rows = await db.select({ id: categories.id, name: categories.name, slug: categories.slug, position: categories.position, translations: categories.translations })
       .from(categories).orderBy(asc(categories.position), asc(categories.name))
@@ -62,7 +63,7 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
     return rows.map(({ translations, ...category }) => ({ ...category, name: overridesFor(translations, lang).name ?? category.name }))
   })
 
-  app.get('/api/products', async (request) => {
+  app.get('/api/products', { schema: routeDoc({ tags: ['catalog'], summary: 'List active products (paginated, filterable)', querystring: catalogQuerySchema }) }, async (request) => {
     const query = catalogQuerySchema.parse(request.query)
     const filters = [eq(products.status, 'active')]
     if (query.collection) filters.push(eq(collections.slug, query.collection))
@@ -141,7 +142,7 @@ export function registerCatalogRoutes(app: FastifyInstance): void {
     }
   })
 
-  app.get('/api/products/:slug', async (request) => {
+  app.get('/api/products/:slug', { schema: routeDoc({ tags: ['catalog'], summary: 'Product detail by slug', params: slugSchema, querystring: localeQuerySchema }) }, async (request) => {
     const { slug } = slugSchema.parse(request.params)
     const { lang } = localeQuerySchema.parse(request.query)
     const [row] = await db.select({

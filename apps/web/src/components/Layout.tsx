@@ -11,8 +11,18 @@ import { selectLanguage, setLanguage } from '../store/ui-slice'
 import { globalTheme } from './theme'
 
 const Page = styled.div`
+  display: flex;
+  flex-direction: column;
   font-family: var(--font-body);
   min-height: 100vh;
+`
+/**
+ * Takes the leftover height so the footer stays pinned to the bottom of the viewport on pages
+ * shorter than the screen (404, empty cart, sign in, notifications), instead of ending halfway
+ * down with blank background under it. Also the page's `main` landmark, which was missing.
+ */
+const Main = styled.main`
+  flex: 1;
 `
 const Notice = styled.p`
   background: var(--color-ink);
@@ -190,7 +200,9 @@ export function Layout() {
           </LanguageToggle>
         </HeaderActions>
       </Header>
-      <Outlet />
+      <Main>
+        <Outlet />
+      </Main>
       <Footer>
         <div>
           <FooterTitle>{t('footer.title')}</FooterTitle>

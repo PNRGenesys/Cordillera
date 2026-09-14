@@ -1,0 +1,18 @@
+# Development-only overrides. Docker Compose loads this file automatically on top
+# of docker-compose.yml for local `docker compose up`, and it is NOT used in a real
+# deployment (where you would run only the base file, e.g.
+# `docker compose -f docker-compose.yml up`).
+#
+# Purpose: in production nothing but the edge is exposed, but during development it
+# is handy to reach the API directly (Postman, curl, debugging) without going
+# through the middleware. This publishes the API port to the host without changing
+# the secure base configuration.
+services:
+  api:
+    ports:
+      - "3000:3000"
+    environment:
+      # Enable the OpenAPI docs (Swagger UI) in development even though the
+      # container runs with NODE_ENV=production. Off in a real deployment (base
+      # file only) so the full API surface is not exposed publicly.
+      ENABLE_API_DOCS: "true"

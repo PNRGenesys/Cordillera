@@ -4,6 +4,7 @@ import { requireArtist } from '../auth/session.js'
 import { db } from '../db/client.js'
 import { customDesignRequests, customers, notifications, productVariants } from '../db/schema.js'
 import { DomainError } from '../errors.js'
+import { routeDoc } from '../openapi.js'
 import { artistStatusSchema, deliverDesignSchema, estimateSchema, idParamSchema } from '../schemas.js'
 
 /** Requests still "alive" for the artist: waiting on them, or delivered and waiting on the customer. */
@@ -15,12 +16,12 @@ async function guard(request: FastifyRequest): Promise<void> {
 }
 
 export function registerArtistRoutes(app: FastifyInstance): void {
-  app.get('/api/artist/status', { preHandler: guard }, async (request) => {
+  app.get('/api/artist/status', { preHandler: guard, schema: routeDoc({ tags: ['artist'], summary: 'Artist availability status' }) }, async (request) => {
     const account = await requireArtist(request)
     return { acceptingRequests: account.acceptingRequests }
   })
 
-  app.patch('/api/artist/status', { preHandler: guard }, async (request) => {
+  app.patch('/api/artist/status', { preHandler: guard, schema: routeDoc({ tags: ['artist'], summary: 'Set artist availability', body: artistStatusSchema }) }, async (request) => {
     const account = await requireArtist(request)
     const input = artistStatusSchema.parse(request.body)
     const [updated] = await db.update(customers).set({ acceptingRequests: input.acceptingRequests, updatedAt: new Date() })
@@ -32,7 +33,7 @@ export function registerArtistRoutes(app: FastifyInstance): void {
    * "Pedidos del día": every request still active for this artist, oldest first, so they see when each
    * one arrived. Going unavailable only stops new requests from being assigned — it does not hide these.
    */
-  app.get('/api/artist/requests', { preHandler: guard }, async (request) => {
+  app.get('/api/artist/requests', { preHandler: guard, schema: routeDoc({ tags: ['artist'], summary: 'Active requests for this artist' }) }, async (request) => {
     const account = await requireArtist(request)
     return db.select({
       id: customDesignRequests.id, status: customDesignRequests.status, createdAt: customDesignRequests.createdAt,
@@ -47,7 +48,7 @@ export function registerArtistRoutes(app: FastifyInstance): void {
       .orderBy(asc(customDesignRequests.createdAt))
   })
 
-  app.patch('/api/artist/requests/:id/estimate', { preHandler: guard }, async (request) => {
+  app.patch('/api/artist/requests/:id/estimate', { preHandler: guard, schema: routeDoc({ tags: ['artist'], summary: 'Set the estimated days for a request', params: idParamSchema, body: estimateSchema }) }, async (request) => {
     const account = await requireArtist(request)
     const { id } = idParamSchema.parse(request.params)
     const input = estimateSchema.parse(request.body)
@@ -57,7 +58,7 @@ export function registerArtistRoutes(app: FastifyInstance): void {
     return updated
   })
 
-  app.post('/api/artist/requests/:id/deliver', { preHandler: guard }, async (request) => {
+  app.post('/api/artist/requests/:id/deliver', { preHandler: guard, schema: routeDoc({ tags: ['artist'], summary: 'Deliver the final design', params: idParamSchema, body: deliverDesignSchema }) }, async (request) => {
     const account = await requireArtist(request)
     const { id } = idParamSchema.parse(request.params)
     const input = deliverDesignSchema.parse(request.body)

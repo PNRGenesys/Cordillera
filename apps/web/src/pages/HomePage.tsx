@@ -97,8 +97,10 @@ export function HomePage() {
   const { data: categories } = useGetCategoriesQuery(language)
   const { data: latest, isLoading, isError } = useGetProductsQuery({ lang: language, pageSize: LATEST_PRODUCTS_COUNT })
   const featuredCollection = collections?.find((collection) => collection.featured) ?? collections?.[0]
-  // The hero reuses the products already fetched for the grid below, so the rotation costs no extra request.
-  const heroSlides = useMemo(() => buildHeroSlides(latest?.items ?? []), [latest])
+  // The hero opens with the line sheet and then reuses the products already fetched for the grid below,
+  // so the rotation costs no extra request.
+  const linePresentationAlt = t('home.linePresentationAlt')
+  const heroSlides = useMemo(() => buildHeroSlides(latest?.items ?? [], linePresentationAlt), [latest, linePresentationAlt])
 
   return (
     <>

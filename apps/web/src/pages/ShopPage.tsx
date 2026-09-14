@@ -72,6 +72,15 @@ const ActiveCount = styled.span`
 
 const SKELETON_CARD_COUNT = 8
 
+/**
+ * Name of a filter and its active marker, on one line. `Field` is a column, and every element inside it
+ * is a flex item of its own: an `ActiveCount` placed next to the bare label text dropped to a second
+ * line and pushed that dropdown below the rest of the row. Wrapping both keeps them in a single item.
+ */
+function FilterLabel({ text, active }: { text: string; active: boolean }) {
+  return <span>{text}{active && <ActiveCount> (1)</ActiveCount>}</span>
+}
+
 function readAvailability(value: string | null): CatalogAvailability {
   return value === 'in_stock' ? 'in_stock' : 'all'
 }
@@ -138,7 +147,7 @@ export function ShopPage() {
       </SectionHeader>
       <Filters onSubmit={(event) => event.preventDefault()}>
         <Field>
-          {t('shop.category')}{searchParams.get('category') && <ActiveCount> (1)</ActiveCount>}
+          <FilterLabel text={t('shop.category')} active={Boolean(searchParams.get('category'))} />
           <Select value={searchParams.get('category') ?? ''} onChange={(event) => updateFilter('category', event.target.value)}>
             <option value="">{t('shop.all')}</option>
             {categories?.map((category) => (
@@ -149,7 +158,7 @@ export function ShopPage() {
           </Select>
         </Field>
         <Field>
-          {t('shop.color')}{searchParams.get('color') && <ActiveCount> (1)</ActiveCount>}
+          <FilterLabel text={t('shop.color')} active={Boolean(searchParams.get('color'))} />
           <Select value={searchParams.get('color') ?? ''} onChange={(event) => updateFilter('color', event.target.value)}>
             <option value="">{t('shop.all')}</option>
             {colorOptions.map((color) => (
@@ -160,7 +169,7 @@ export function ShopPage() {
           </Select>
         </Field>
         <Field>
-          {t('shop.size')}{searchParams.get('size') && <ActiveCount> (1)</ActiveCount>}
+          <FilterLabel text={t('shop.size')} active={Boolean(searchParams.get('size'))} />
           <Select value={searchParams.get('size') ?? ''} onChange={(event) => updateFilter('size', event.target.value)}>
             <option value="">{t('shop.all')}</option>
             {sizeOptions.map((size) => (
@@ -171,7 +180,7 @@ export function ShopPage() {
           </Select>
         </Field>
         <Field>
-          {t('shop.availability')}{searchParams.get('availability') === 'in_stock' && <ActiveCount> (1)</ActiveCount>}
+          <FilterLabel text={t('shop.availability')} active={searchParams.get('availability') === 'in_stock'} />
           <Select value={searchParams.get('availability') ?? 'all'} onChange={(event) => updateFilter('availability', event.target.value)}>
             <option value="all">{t('shop.all')}</option>
             <option value="in_stock">{t('shop.inStock')}</option>
