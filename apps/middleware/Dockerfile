@@ -1,5 +1,5 @@
 # Control-plane middleware image (FastAPI + uvicorn).
-FROM python:3.12-slim
+FROM python:3.12-slim AS base
 
 # Keep Python output unbuffered and skip .pyc files inside the container.
 ENV PYTHONUNBUFFERED=1 \
@@ -14,6 +14,17 @@ WORKDIR /app
 COPY pyproject.toml ./
 COPY app ./app
 RUN pip install --upgrade pip && pip install .
+
+# ---- Test stage: the same image plus the test dependencies and the suite ----
+# Built on demand (`npm run test:middleware`), never part of the runtime image. It sits
+# before the runtime stage so the last stage stays the default target for compose builds.
+FROM base AS test
+COPY tests ./tests
+RUN pip install ".[test]"
+CMD ["pytest", "-q"]
+
+# ---- Runtime stage ----
+FROM base AS runtime
 
 EXPOSE 8000
 

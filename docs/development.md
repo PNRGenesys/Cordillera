@@ -11,7 +11,7 @@
 ```powershell
 npm.cmd install
 Copy-Item apps/api/.env.example apps/api/.env
-npm.cmd run db:up
+docker compose up -d database
 npm.cmd run db:migrate --workspace=@cordillera/api
 npm.cmd run db:seed    --workspace=@cordillera/api
 npm.cmd run dev
@@ -21,6 +21,8 @@ npm.cmd run dev
 - API: `http://localhost:3000`
 - Base de datos: `localhost:5432`
 
+Aqui se levanta solo la base de datos, no `npm.cmd run db:up`: ese comando arranca el grupo de contenedores completo y su API tambien publica el puerto 3000, el mismo que usa `npm.cmd run dev`. Los dos flujos no conviven; para pasar del grupo al desarrollo con recarga en caliente hay que ejecutar antes `npm.cmd run db:down`. El grupo completo esta descrito en el `README.md`.
+
 La configuracion local de API esta en `apps/api/.env`. Nunca se deben versionar claves reales de produccion. Ademas de `DATABASE_URL`, acepta `SESSION_TTL_DAYS` (duracion de la cookie de sesion) y `PASSWORD_MIN_LENGTH`; ambas tienen valor por defecto.
 
 ## Panel de administracion
@@ -29,7 +31,7 @@ La configuracion local de API esta en `apps/api/.env`. Nunca se deben versionar 
 2. Ejecutar `npm.cmd run admin:grant --workspace=@cordillera/api -- <correo>`.
 3. Volver a cargar la tienda: aparece el enlace `Admin` en la cabecera y `/admin` queda disponible.
 
-El rol solo se otorga por linea de comandos; no hay forma de ascender una cuenta desde la interfaz.
+`admin:grant` es la unica forma de crear el primer administrador, porque hace falta una cuenta con ese rol para entrar al panel. A partir de ahi, la seccion "Clientes" de `/admin` cambia el rol de cualquier cuenta (`customer`, `admin` o `artist`) desde la interfaz; es tambien la unica forma de otorgar el rol de artista.
 
 ## Comandos frecuentes
 
@@ -41,8 +43,9 @@ El rol solo se otorga por linea de comandos; no hay forma de ascender una cuenta
 | `npm.cmd run test` | Ejecuta las pruebas de ambos proyectos. |
 | `npm.cmd run test --workspace=@cordillera/web` | Pruebas unitarias del frontend (Vitest, entorno `jsdom`). |
 | `npm.cmd run test --workspace=@cordillera/api` | Pruebas de integracion de la API (Vitest, entorno `node`). Requieren PostgreSQL en ejecucion. |
-| `npm.cmd run db:up` | Inicia PostgreSQL. |
-| `npm.cmd run db:down` | Detiene PostgreSQL. |
+| `npm.cmd run test:middleware` | Pruebas del middleware (pytest). Corren dentro de Docker, sin Python en el equipo. |
+| `npm.cmd run db:up` | Levanta el grupo de contenedores completo: base de datos, API, frontend y middleware. |
+| `npm.cmd run db:down` | Detiene el grupo de contenedores. |
 | `npm.cmd run db:generate --workspace=@cordillera/api` | Genera migracion tras editar el esquema. |
 | `npm.cmd run db:migrate --workspace=@cordillera/api` | Aplica migraciones. |
 | `npm.cmd run db:seed --workspace=@cordillera/api` | Carga datos de demostracion idempotentes (productos, colecciones, inventario). |
@@ -56,7 +59,7 @@ Las pruebas requieren Node 22.12 o posterior (verificadas en Node 24.19). Con No
 
 ### Pruebas de la API
 
-Son pruebas de integracion contra la base de datos local: crean sus propios producto y clientes de prueba, ejercitan el flujo y limpian sus datos al terminar. Necesitan `apps/api/.env` con `DATABASE_URL` y PostgreSQL levantado (`db:up` + `db:migrate`). Corren en serie (`fileParallelism: false`) porque comparten una sola base.
+Son pruebas de integracion contra la base de datos local: crean sus propios producto y clientes de prueba, ejercitan el flujo y limpian sus datos al terminar. Necesitan `apps/api/.env` con `DATABASE_URL` y PostgreSQL levantado (`docker compose up -d database` + `db:migrate`). Corren en serie (`fileParallelism: false`) porque comparten una sola base.
 
 ## Cambio de base de datos
 
@@ -68,18 +71,16 @@ Son pruebas de integracion contra la base de datos local: crean sus propios prod
 
 ## Pruebas visuales
 
-Playwright no es dependencia del repositorio: se instala aparte cuando hace falta recorrer la tienda y comparar capturas.
+Playwright ya es dependencia del repositorio (`apps/e2e`); solo falta descargar el navegador la primera vez:
 
 ```powershell
-npm.cmd init -y
-npm.cmd install playwright
-npx.cmd playwright install chromium
+npm.cmd run test:e2e:install
 ```
 
-El recorrido habitual cubre inicio, catalogo, coleccion, detalle, producto agotado, carrito, checkout, cuenta y panel de administracion, en 1440x1000 y 390x844, revisando que no haya errores de consola ni imagenes rotas. Para el idioma, la comprobacion util es cargar cada pagina en español, cambiar a ingles y comparar el texto: lo que no cambia deberia ser solo la marca, los numeros y las tallas por letra.
+El recorrido habitual cubre inicio, catalogo, coleccion, detalle, producto agotado, carrito, checkout, cuenta, notificaciones, solicitud de diseno personalizado, panel del artista y panel de administracion, en 1440x1000 y 390x844, revisando que no haya errores de consola ni imagenes rotas. Conviene mirar tambien alguna ruta corta (bolsa vacia, 404): el pie de pagina debe quedar pegado al borde inferior de la ventana. Para el idioma, la comprobacion util es cargar cada pagina en español, cambiar a ingles y comparar el texto: lo que no cambia deberia ser solo la marca, los numeros y las tallas por letra.
 
 ## Datos de demostracion
 
-`npm.cmd run db:seed --workspace=@cordillera/api` carga datos idempotentes: productos activos, colecciones, categorias, guias de talla, inventario y movimientos. Uno de los productos queda deliberadamente con stock 0 (para probar el estado agotado) y otro en `preorder`. Los productos que ya no estan en el seed quedan archivados. Sin ejecutar el seed, el catalogo muestra su estado vacio.
+`npm.cmd run db:seed --workspace=@cordillera/api` carga datos idempotentes: 12 productos activos en dos colecciones (Wildspirit y Serie Fauna), categorias, guias de talla, inventario y movimientos. "Sudaderas", "Collares" y "Otros" se crean vacias a proposito, para que un administrador les cargue productos. Uno de los productos queda deliberadamente con stock 0 (para probar el estado agotado) y otro en `preorder`. Los productos que ya no estan en el seed quedan archivados. Sin ejecutar el seed, el catalogo muestra su estado vacio.
 
 Las imagenes del catalogo son fichas de diseno generadas con IA y sirven unicamente para probar la tienda (ver `docs/pending-work.md`).

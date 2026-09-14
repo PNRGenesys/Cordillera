@@ -22,7 +22,7 @@ const Slide = styled.img`
   animation-timing-function: ease, linear;
   height: 100%;
   inset: 0;
-  object-fit: cover;
+  object-fit: var(--hero-fit);
   opacity: 0;
   position: absolute;
   width: 100%;
@@ -55,16 +55,17 @@ const Slide = styled.img`
    * out. It starts already part way through the movement, so during a crossfade both images are
    * drifting instead of one of them sitting still. The scale always exceeds the displacement, so the
    * panel never uncovers an edge, and the reset back to the start happens while the slide is invisible.
+   * A slide meant to be read whole passes the same scale twice and no displacement, so it stays still.
    */
   @keyframes heroDrift {
     0% {
-      transform: scale(1.04) translate3d(var(--hero-from-x), var(--hero-from-y), 0);
+      transform: scale(var(--hero-scale-from)) translate3d(var(--hero-from-x), var(--hero-from-y), 0);
     }
     33% {
-      transform: scale(1.09) translate3d(var(--hero-to-x), var(--hero-to-y), 0);
+      transform: scale(var(--hero-scale-to)) translate3d(var(--hero-to-x), var(--hero-to-y), 0);
     }
     100% {
-      transform: scale(1.09) translate3d(var(--hero-to-x), var(--hero-to-y), 0);
+      transform: scale(var(--hero-scale-to)) translate3d(var(--hero-to-x), var(--hero-to-y), 0);
     }
   }
 
@@ -88,15 +89,18 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
   return (
     <Stage>
       {slides.map((slide, index) => {
-        const drift = driftFor(slide.url, index)
+        const drift = driftFor(slide, index)
         const variables: SlideVariables = {
           // The negative delay starts every slide already in its own phase, so the first cycle looks like the rest.
           '--hero-delay': `-${index * HERO_SLIDE_SECONDS}s`,
           '--hero-duration': duration,
+          '--hero-fit': slide.fit,
           '--hero-from-x': drift.fromX,
           '--hero-from-y': drift.fromY,
           '--hero-to-x': drift.toX,
           '--hero-to-y': drift.toY,
+          '--hero-scale-from': drift.scaleFrom,
+          '--hero-scale-to': drift.scaleTo,
         }
 
         return (

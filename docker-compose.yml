@@ -71,7 +71,11 @@ services:
     build:
       context: ./apps/middleware
     env_file:
-      - ./apps/middleware/.env
+      # Optional: every setting already has a default and the two that matter here are set below,
+      # so a fresh clone (where `.env` is gitignored and only `.env.example` is committed) still
+      # starts. Without `required: false` the whole file fails to load, which also broke `db:up`.
+      - path: ./apps/middleware/.env
+        required: false
     environment:
       PORT: 8000
       # Overrides API_BASE_URL from .env: the API now lives in the compose network.

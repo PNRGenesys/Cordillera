@@ -6,7 +6,11 @@ export const HERO_SLIDE_COUNT = 4
 /** Seconds each slide owns; the whole cycle lasts `HERO_SLIDE_COUNT * HERO_SLIDE_SECONDS`. */
 export const HERO_SLIDE_SECONDS = 5
 
-export type HeroSlide = { url: string; alt: string }
+/**
+ * `contain` is for an image that has to be read whole, such as the line sheet: the panel shows all of it
+ * instead of filling itself with the middle. Product photography fills the panel with `cover`.
+ */
+export type HeroSlide = { url: string; alt: string; fit: 'cover' | 'contain' }
 
 /** How far a slide travels, as a percentage of its own size, by the time it leaves. */
 const DRIFT_DISTANCE_PERCENT = 2
@@ -29,7 +33,18 @@ const DRIFT_DIRECTIONS = [
   { x: 1, y: 1 },
 ] as const
 
-export type HeroDrift = { fromX: string; fromY: string; toX: string; toY: string }
+/** How much the slide is zoomed when it appears and when it leaves. */
+const ZOOM_FROM = '1.04'
+const ZOOM_TO = '1.09'
+
+export type HeroDrift = { fromX: string; fromY: string; toX: string; toY: string; scaleFrom: string; scaleTo: string }
+
+/**
+ * A slide that has to be read whole grows into place instead: it cannot be zoomed past its own size,
+ * because the panel would crop the very thing it is there to show. It does not travel either, since
+ * which side has room to move into depends on the shape of the panel.
+ */
+const CONTAIN_DRIFT: HeroDrift = { fromX: '0%', fromY: '0%', toX: '0%', toY: '0%', scaleFrom: '0.95', scaleTo: '1' }
 
 /** Stable hash of the slide, so the direction looks random but never changes between renders. */
 function hashOf(url: string, index: number): number {
@@ -46,24 +61,32 @@ function percent(direction: number, ratio: number): string {
  * Picks the direction each slide drifts towards. Two slides in a row rarely move the same way, and the
  * same slide always moves the same way, so nothing jumps when React re-renders the hero.
  */
-export function driftFor(url: string, index: number): HeroDrift {
-  const direction = DRIFT_DIRECTIONS[hashOf(url, index) % DRIFT_DIRECTIONS.length] ?? DRIFT_DIRECTIONS[0]
+export function driftFor(slide: HeroSlide, index: number): HeroDrift {
+  if (slide.fit === 'contain') return CONTAIN_DRIFT
+  const direction = DRIFT_DIRECTIONS[hashOf(slide.url, index) % DRIFT_DIRECTIONS.length] ?? DRIFT_DIRECTIONS[0]
   return {
     fromX: percent(direction.x, DRIFT_HEAD_START),
     fromY: percent(direction.y, DRIFT_HEAD_START),
     toX: percent(direction.x, 1),
     toY: percent(direction.y, 1),
+    scaleFrom: ZOOM_FROM,
+    scaleTo: ZOOM_TO,
   }
 }
 
+/** The line sheet, shown whole: it presents the range before the rotation moves on to the latest pieces. */
+export const HERO_PRESENTATION_URL = '/hero/cordillera-line.jpg'
+
 /**
- * Builds a fixed length list from the latest products that have an image. Shorter lists are padded by
- * cycling what is available, so the keyframes always find a slide and a catalog with a single image
- * simply leaves the hero still. With nothing to show it returns an empty list and the hero stays blank.
+ * Builds a fixed length list: the line sheet first, then the latest products that have an image. Shorter
+ * lists are padded by cycling what is available, so the keyframes always find a slide and an empty catalog
+ * simply leaves the sheet on screen.
  */
-export function buildHeroSlides(products: CatalogProductSummary[]): HeroSlide[] {
-  const available = products.flatMap((product) => (product.imageUrl ? [{ url: product.imageUrl, alt: product.name }] : []))
-  const [first] = available
-  if (!first) return []
-  return Array.from({ length: HERO_SLIDE_COUNT }, (_, index) => available[index % available.length] ?? first)
+export function buildHeroSlides(products: CatalogProductSummary[], presentationAlt: string): HeroSlide[] {
+  const presentation: HeroSlide = { url: HERO_PRESENTATION_URL, alt: presentationAlt, fit: 'contain' }
+  const available: HeroSlide[] = [
+    presentation,
+    ...products.flatMap((product) => (product.imageUrl ? [{ url: product.imageUrl, alt: product.name, fit: 'cover' as const }] : [])),
+  ]
+  return Array.from({ length: HERO_SLIDE_COUNT }, (_, index) => available[index % available.length] ?? presentation)
 }

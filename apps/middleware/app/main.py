@@ -12,7 +12,7 @@ import httpx
 from fastapi import FastAPI, Request, Response
 
 from .config import get_settings
-from .proxy import proxy_to_api
+from .proxy import build_api_client, proxy_to_api
 
 
 @asynccontextmanager
@@ -21,12 +21,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     The read timeout is generous because some API calls (checkout with an atomic
     inventory reservation) do real work; connect stays short to fail fast when
-    the API is down.
+    the API is down. The client is shared by every visitor, so it is given a jar
+    that stores no cookies (see `NoStoreCookieJar`).
     """
 
     settings = get_settings()
     timeout = httpx.Timeout(connect=5.0, read=30.0, write=30.0, pool=5.0)
-    async with httpx.AsyncClient(base_url=settings.api_base_url, timeout=timeout) as client:
+    async with build_api_client(settings.api_base_url, timeout) as client:
         app.state.api_client = client
         yield
 

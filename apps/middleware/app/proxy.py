@@ -8,6 +8,8 @@ API stops being reachable directly from the browser. Edge concerns (rate
 limiting, edge auth) will hang off this single entry point later.
 """
 
+from http.cookiejar import CookieJar
+
 import httpx
 from fastapi import Request, Response
 
@@ -29,15 +31,55 @@ HOP_BY_HOP_HEADERS = frozenset(
 )
 
 
+class NoStoreCookieJar(CookieJar):
+    """Cookie jar that never keeps anything.
+
+    The httpx client is shared by every visitor, and its default jar would store each
+    `Set-Cookie` the API returns and replay it on the next request — whoever made it. One
+    customer's session would then be handed to everybody else. Cookies must only travel in
+    the headers of the request they belong to, which `_forwardable_request_headers` already
+    forwards, so this jar drops every cookie the upstream tries to store.
+
+    It is passed to `AsyncClient(cookies=...)` as a plain `CookieJar`: httpx copies a
+    `httpx.Cookies` into a fresh jar, but adopts a `CookieJar` instance as given.
+    """
+
+    def extract_cookies(self, response: object, request: object) -> None:
+        return
+
+
+def build_api_client(
+    base_url: str,
+    timeout: httpx.Timeout,
+    transport: httpx.AsyncBaseTransport | None = None,
+) -> httpx.AsyncClient:
+    """Build the shared upstream client.
+
+    The single place where it is created, so its no-store cookie policy cannot be
+    bypassed by accident. `transport` is only passed by the tests.
+    """
+
+    return httpx.AsyncClient(
+        base_url=base_url, timeout=timeout, transport=transport, cookies=NoStoreCookieJar()
+    )
+
+
 def _forwardable_request_headers(request: Request) -> dict[str, str]:
     """Copy client headers except hop-by-hop ones. Cookie is kept so the API
-    still sees the session cookie."""
+    still sees the session cookie.
 
-    return {
+    Accept-Encoding is replaced with `identity`: httpx decompresses every response
+    transparently, so letting the API gzip it would only mean compressing and
+    inflating the same bytes for nothing. The edge (nginx) compresses instead.
+    """
+
+    headers = {
         key: value
         for key, value in request.headers.items()
-        if key.lower() not in HOP_BY_HOP_HEADERS
+        if key.lower() not in HOP_BY_HOP_HEADERS and key.lower() != "accept-encoding"
     }
+    headers["accept-encoding"] = "identity"
+    return headers
 
 
 async def proxy_to_api(request: Request) -> Response:

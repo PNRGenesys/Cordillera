@@ -1,6 +1,6 @@
 # API
 
-Base local: en desarrollo (`npm run dev`) la API responde directo en `http://localhost:3000`. En el grupo de contenedores todo el trafico pasa por el middleware y la base es `http://localhost:8000/api` (la API no se publica al host). Todas las solicitudes y respuestas usan JSON. Las validaciones de cada ruta viven en `apps/api/src/schemas.ts` (Zod).
+Base local: en desarrollo (`npm run dev`) la API responde directo en `http://localhost:3000`. En el grupo de contenedores todo el trafico pasa por el middleware: el navegador la alcanza en el mismo origen de la tienda (`http://localhost:8080/api`) y tambien directo en el middleware (`http://localhost:8000/api`). En el archivo base la API no publica puerto; `docker-compose.override.yml`, que Compose aplica en desarrollo, la reexpone en `http://localhost:3000` para depurarla sin pasar por el middleware. Todas las solicitudes y respuestas usan JSON. Las validaciones de cada ruta viven en `apps/api/src/schemas.ts` (Zod).
 
 Hay documentación OpenAPI interactiva (Swagger UI) en `/api/docs` (en desarrollo `http://localhost:3000/api/docs`; en el grupo de contenedores `http://localhost:8000/api/docs`, a través del middleware), con la especificación en `/api/docs/json`. Se genera a partir de los mismos esquemas Zod (ver `apps/api/src/openapi.ts`), asi que la doc no se desincroniza de la validación. Está habilitada fuera de producción; en un contenedor con `NODE_ENV=production` se activa con `ENABLE_API_DOCS=true`. Nota: los esquemas Zod se adjuntan solo para documentar; la validación real sigue en el `.parse()` de cada ruta.
 
@@ -27,7 +27,7 @@ Hay documentación OpenAPI interactiva (Swagger UI) en `/api/docs` (en desarroll
 
 ### Cuentas de cliente
 
-La sesión viaja en la cookie `cordillera_session` (`httpOnly`, `sameSite=lax`, `secure` en produccion). La API guarda solo el hash SHA-256 del token y la contraseña con `scrypt`. Su duración sale de `SESSION_TTL_DAYS`.
+La sesión viaja en la cookie `cordillera_session` (`httpOnly`, `sameSite=lax`). El atributo `secure` sale de `SESSION_COOKIE_SECURE`, que por defecto sigue a produccion: debe reflejar si se sirve por HTTPS, no si es un build de produccion, porque una cookie `Secure` sobre HTTP plano nunca vuelve al servidor. La API guarda solo el hash SHA-256 del token y la contraseña con `scrypt`. Su duración sale de `SESSION_TTL_DAYS`.
 
 ```
 POST /api/auth/register  { "email": "...", "password": "...", "firstName": "...", "lastName": "...", "phone": "..." }  -> 201 AccountProfile
@@ -208,6 +208,7 @@ Toda ruta administrativa exige la cookie de sesión de una cuenta con `role = ad
 | PATCH | `/api/admin/products/:id` | Cambia nombre, descripción, composición, estado, lanzamiento, categoría o colección. |
 | PATCH | `/api/admin/variants/:id` | Cambia nombre, color, talla o precio de una variante. |
 | POST | `/api/admin/products` | Crea un producto en borrador, sus variantes e inventario inicial. |
+| POST | `/api/admin/products/:id/discount` | Aplica o retira un descuento sobre todas las variantes del producto. |
 | POST | `/api/admin/inventory/adjustments` | Ajusta el stock de una variante y deja trazabilidad (`inventory_movements`). |
 | GET | `/api/admin/orders` | Lista los pedidos con cliente, dirección, líneas y datos de envío. |
 | PATCH | `/api/admin/orders/:id` | Cambia el estado del pedido y registra transportadora y número de guía. |
@@ -215,6 +216,8 @@ Toda ruta administrativa exige la cookie de sesión de una cuenta con `role = ad
 | PATCH | `/api/admin/customers/:id/role` | Cambia el rol de una cuenta (`customer`, `admin` o `artist`). |
 
 Todas las actualizaciones son parciales y rechazan un cuerpo vacío (`400 invalid_request`).
+
+El descuento se calcula siempre sobre el precio regular de la variante (`compareAtPriceCents` si ya hay descuento, `priceCents` si no), así que volver a aplicarlo no se acumula sobre el anterior; `discountPercent: 0` restaura el precio regular y borra el descuento.
 
 Cambiar un pedido a `paid` convierte sus reservas en venta (descuenta `on_hand` y libera `reserved`); pasarlo a `cancelled` o `refunded` devuelve las unidades. Un pedido cancelado o reembolsado ya no puede cambiar de estado (`409 invalid_status_change`).
 

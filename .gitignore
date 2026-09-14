@@ -9,3 +9,6 @@ apps/e2e/playwright-report/
 apps/e2e/blob-report/
 apps/e2e/.cache/
 
+__pycache__/
+*.egg-info/
+.pytest_cache/
