@@ -1,6 +1,6 @@
 import { styled } from '@linaria/react'
 import type { CSSProperties } from 'react'
-import { toThumbUrl } from '../lib/image'
+import { toSrcSet } from '../lib/image'
 import { driftFor, HERO_SLIDE_COUNT, HERO_SLIDE_SECONDS, type HeroSlide } from '../lib/hero-slides'
 
 /** `style` carries the per slide values as custom properties, which the CSS below reads. */
@@ -107,7 +107,7 @@ export function HeroSlideshow({ slides }: HeroSlideshowProps) {
           <Slide
             key={`${index}-${slide.url}`}
             src={slide.url}
-            srcSet={`${toThumbUrl(slide.url)} 480w, ${slide.url} 1200w`}
+            srcSet={toSrcSet(slide.url)}
             sizes="(max-width: 760px) 100vw, 55vw"
             alt={slide.alt}
             decoding="async"

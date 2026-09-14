@@ -35,6 +35,8 @@ export const config = {
   customDesignSurchargePercent: readNumber('CUSTOM_DESIGN_SURCHARGE_PERCENT', 50),
   /** Longest data URL accepted for a fursona reference photo or a finished design; not square-cropped like an avatar, so it allows more room. */
   customDesignImageMaxCharacters: readNumber('CUSTOM_DESIGN_IMAGE_MAX_CHARACTERS', 600_000),
+  /** Longest data URL accepted for a picture uploaded from the admin panel: a product or a collection hero. */
+  catalogImageMaxCharacters: readNumber('CATALOG_IMAGE_MAX_CHARACTERS', 600_000),
   isProduction: process.env.NODE_ENV === 'production',
   /**
    * Whether the session cookie carries the `Secure` flag. It must track "am I served over

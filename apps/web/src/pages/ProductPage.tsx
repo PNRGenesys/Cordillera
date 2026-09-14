@@ -11,7 +11,7 @@ import { VariantSelector } from '../components/VariantSelector'
 import { isCustomDesignWindowOpen } from '../lib/business-hours'
 import { useAccount } from '../lib/use-account'
 import { useTranslation } from '../lib/use-translation'
-import { toThumbUrl } from '../lib/image'
+import { toSrcSet } from '../lib/image'
 import { sortVariantsBySizeGuide } from '../lib/variant-order'
 import { selectSessionId } from '../store/cart-slice'
 import { useAddCartItemMutation, useGetProductQuery, useRequestRestockMutation } from '../store/catalog-api'
@@ -270,7 +270,7 @@ export function ProductPage() {
               <ActiveImageWrapper>
                 <GalleryImage
                   src={activeImage.url}
-                  srcSet={`${toThumbUrl(activeImage.url)} 480w, ${activeImage.url} 1200w`}
+                  srcSet={toSrcSet(activeImage.url)}
                   sizes="(max-width: 800px) 100vw, 45vw"
                   alt={activeImage.alt ?? product.name}
                   decoding="async"

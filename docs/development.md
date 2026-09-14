@@ -33,6 +33,8 @@ La configuracion local de API esta en `apps/api/.env`. Nunca se deben versionar 
 
 `admin:grant` es la unica forma de crear el primer administrador, porque hace falta una cuenta con ese rol para entrar al panel. A partir de ahi, la seccion "Clientes" de `/admin` cambia el rol de cualquier cuenta (`customer`, `admin` o `artist`) desde la interfaz; es tambien la unica forma de otorgar el rol de artista.
 
+La seccion "Productos" abre con dos formularios: "Nuevo producto", que crea el producto con su imagen y sus variantes y lo deja en borrador, y "Nueva coleccion", para cuando el producto no encaja en ninguna de las que ya existen (la coleccion recien creada aparece de inmediato en el desplegable del otro formulario). El propio formulario lleva un boton de ayuda con el paso a paso, asi que no hace falta documentarlo aqui: si cambia el flujo, el texto a actualizar son las claves `admin.help*` de `src/lib/translations.ts`.
+
 ## Comandos frecuentes
 
 | Comando | Uso |

@@ -1,7 +1,9 @@
 import { styled } from '@linaria/react'
+import { AdminCollectionCreateForm } from '../components/AdminCollectionCreateForm'
 import { AdminCustomerCard } from '../components/AdminCustomerCard'
 import { AdminOrderCard } from '../components/AdminOrderCard'
 import { AdminProductCard } from '../components/AdminProductCard'
+import { AdminProductCreateForm } from '../components/AdminProductCreateForm'
 import { Kicker, Section, SectionHeader, SectionTitle } from '../components/primitives'
 import { RowSkeleton } from '../components/Skeleton'
 import { StateMessage } from '../components/StateMessage'
@@ -37,6 +39,8 @@ export function AdminPage() {
           </div>
         </SectionHeader>
         <CardList>
+          <AdminProductCreateForm />
+          <AdminCollectionCreateForm />
           {isLoadingProducts && Array.from({ length: ADMIN_SKELETON_ROWS }, (_, index) => <RowSkeleton key={index} height="3.5rem" />)}
           {products?.length === 0 && <StateMessage kind="empty">{t('admin.noProducts')}</StateMessage>}
           {products?.map((product) => <AdminProductCard key={product.id} product={product} />)}

@@ -55,10 +55,18 @@ export const registerSchema = z.object({
 })
 export const loginSchema = z.object({ email: z.string().email().max(320), password: z.string().min(1).max(200) })
 
-/** The picture travels as a data URL, so the limit is on the encoded text rather than on the file. */
-const avatarSchema = z.string()
-  .max(config.avatarMaxCharacters)
-  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/, { message: 'The picture must be a PNG, JPEG or WebP data URL' })
+/**
+ * Every picture travels as a data URL, so the limit is on the encoded text rather than on the file.
+ * Each caller passes its own ceiling: an avatar is square-cropped and small, while a design, a
+ * product or a collection picture keeps its whole frame and needs more room.
+ */
+function dataUrlImage(maxCharacters: number) {
+  return z.string()
+    .max(maxCharacters)
+    .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/, { message: 'The picture must be a PNG, JPEG or WebP data URL' })
+}
+
+const avatarSchema = dataUrlImage(config.avatarMaxCharacters)
 
 /**
  * A field left empty in the form means the customer removed what was there, so it clears the column
@@ -131,10 +139,7 @@ export const CUSTOMER_ROLES = ['customer', 'admin', 'artist'] as const
 
 export const customerRoleUpdateSchema = z.object({ role: z.enum(CUSTOMER_ROLES) })
 
-/** Same data URL approach as `avatarSchema`, but not square-cropped, so it allows a larger picture. */
-const designImageSchema = z.string()
-  .max(config.customDesignImageMaxCharacters)
-  .regex(/^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/]+=*$/, { message: 'The picture must be a PNG, JPEG or WebP data URL' })
+const designImageSchema = dataUrlImage(config.customDesignImageMaxCharacters)
 
 /** `artistId` is either a specific artist or the literal `'fastest'`, resolved server-side to whoever has the shortest queue. */
 export const customDesignRequestSchema = z.object({
@@ -158,6 +163,12 @@ export const productCreateSchema = z.object({
   slug: slugSchema.shape.slug,
   description: z.string().max(10_000).optional(),
   composition: z.string().max(240).optional(),
+  /**
+   * The picture of a product created from the panel, as a data URL. The catalogue images that come
+   * from the seed are static files under `/products`, but the browser cannot write one, and the store
+   * has no file storage yet, so it is kept in the database like the avatar and the design pictures.
+   */
+  image: dataUrlImage(config.catalogImageMaxCharacters).optional(),
   categoryId: z.string().uuid().optional(),
   collectionId: z.string().uuid().optional(),
   release: z.enum(['available', 'preorder', 'coming_soon']).default('available'),
@@ -169,4 +180,17 @@ export const productCreateSchema = z.object({
     size: z.string().max(30).optional(),
     initialStock: z.number().int().min(0).default(0),
   })).min(1),
+})
+
+/**
+ * A collection groups a release. `featured` is what the home page leads with, and `heroImage` is the
+ * same data URL story as a product picture: there is no file storage yet, so it lives in the database.
+ */
+export const collectionCreateSchema = z.object({
+  name: z.string().min(2).max(140),
+  slug: slugSchema.shape.slug,
+  tagline: z.string().max(240).optional(),
+  description: z.string().max(10_000).optional(),
+  featured: z.boolean().default(false),
+  heroImage: dataUrlImage(config.catalogImageMaxCharacters).optional(),
 })

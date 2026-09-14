@@ -18,8 +18,7 @@ El inicio de sesion y el rol de administrador ya funcionan, pero queda por hacer
 
 Funciona sobre el catalogo, el inventario y los pedidos, pero le falta:
 
-- Crear productos desde la interfaz: `POST /api/admin/products` existe y no tiene formulario.
-- Editar imagenes, categoria y coleccion de un producto, y crear o eliminar variantes.
+- Editar la imagen, la categoria y la coleccion de un producto ya creado, y agregar o eliminar variantes: el formulario de alta las define una sola vez y despues la ficha solo deja cambiar nombre, estado, lanzamiento, precio y stock.
 - Registro de quien hizo cada cambio; hoy solo los ajustes de inventario dejan rastro con nota.
 - Paginacion y busqueda: la pagina carga el catalogo y los pedidos completos de una sola vez.
 - Reembolsar un pedido ya cobrado no devuelve unidades al inventario, porque su reserva ya se consumio.

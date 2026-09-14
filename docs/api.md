@@ -207,15 +207,20 @@ Toda ruta administrativa exige la cookie de sesión de una cuenta con `role = ad
 | GET | `/api/admin/products` | Lista todos los productos (incluidos borradores y archivados) con sus variantes, precios y existencias. |
 | PATCH | `/api/admin/products/:id` | Cambia nombre, descripción, composición, estado, lanzamiento, categoría o colección. |
 | PATCH | `/api/admin/variants/:id` | Cambia nombre, color, talla o precio de una variante. |
-| POST | `/api/admin/products` | Crea un producto en borrador, sus variantes e inventario inicial. |
+| POST | `/api/admin/products` | Crea un producto en borrador, con su imagen, sus variantes e inventario inicial. |
 | POST | `/api/admin/products/:id/discount` | Aplica o retira un descuento sobre todas las variantes del producto. |
 | POST | `/api/admin/inventory/adjustments` | Ajusta el stock de una variante y deja trazabilidad (`inventory_movements`). |
+| POST | `/api/admin/collections` | Crea una colección con su portada, fechada hoy. |
 | GET | `/api/admin/orders` | Lista los pedidos con cliente, dirección, líneas y datos de envío. |
 | PATCH | `/api/admin/orders/:id` | Cambia el estado del pedido y registra transportadora y número de guía. |
 | GET | `/api/admin/customers` | Lista todas las cuentas con su rol. |
 | PATCH | `/api/admin/customers/:id/role` | Cambia el rol de una cuenta (`customer`, `admin` o `artist`). |
 
 Todas las actualizaciones son parciales y rechazan un cuerpo vacío (`400 invalid_request`).
+
+`POST /api/admin/products` acepta `image`: la foto del producto como data URL (PNG, JPEG o WebP), limitada por `CATALOG_IMAGE_MAX_CHARACTERS`. Las imagenes del catalogo que vienen del seed son archivos estaticos bajo `/products`, pero el navegador no puede escribir uno y la tienda aun no tiene almacenamiento de archivos, asi que la del panel se guarda en la base como la foto de perfil. El producto nace en estado `draft`.
+
+`POST /api/admin/collections` acepta `name`, `slug`, `tagline`, `description`, `featured` y `heroImage` (data URL, mismo limite). La colección se guarda con `releasedAt` en el momento de crearla, porque el listado ordena por `featured` y luego por fecha, y una colección nueva es lo más reciente que tiene la tienda.
 
 El descuento se calcula siempre sobre el precio regular de la variante (`compareAtPriceCents` si ya hay descuento, `priceCents` si no), así que volver a aplicarlo no se acumula sobre el anterior; `discountPercent: 0` restaura el precio regular y borra el descuento.
 

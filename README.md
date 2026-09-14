@@ -37,7 +37,7 @@ Para levantar todo en contenedores (incluida la base) esta el [grupo de contened
 - Inventario por variante con unidades disponibles, reservadas y punto de reposicion, mas un historial inmutable de movimientos.
 - Carrito por sesion, checkout con reserva atomica de inventario y pedidos con copia inmutable de precio y SKU.
 - Cuentas de cliente con registro e inicio de sesion (contrasenas con `scrypt`, sesion en cookie `httpOnly`), perfil editable con foto y direccion de envio guardada.
-- Panel de administracion en `/admin` para editar productos y precios, aplicar descuentos, ajustar existencias, gestionar pedidos y envios y cambiar el rol de las cuentas.
+- Panel de administracion en `/admin` para crear productos con su imagen y sus variantes, crear colecciones, editar productos y precios, aplicar descuentos, ajustar existencias, gestionar pedidos y envios y cambiar el rol de las cuentas.
 - Diseno personalizado (fursona): el cliente lo solicita sobre una prenda del catalogo con un recargo, elige artista, y este estima, entrega y recibe cambios desde su propio panel `/artist`, con notificaciones en `/notifications` para las dos partes.
 - Interfaz y catalogo en espanol e ingles: los textos fijos viven en el frontend y las traducciones del catalogo en la base de datos.
 

@@ -2,6 +2,16 @@
 
 Este archivo registra los cambios incluidos en cada commit solicitado. Las entradas se agregan antes de crear el commit.
 
+## Alta de productos y colecciones desde el panel, y miniaturas que no se veian
+
+- `/admin` gana el formulario "Nuevo producto", que faltaba: `POST /api/admin/products` existia desde el principio pero no habia pantalla, asi que las secciones vacias no se podian llenar sin tocar la API. Pide nombre, slug, descripcion, composicion, categoria, coleccion, lanzamiento, imagen y una o mas variantes con SKU, color, talla, precio en pesos y stock inicial. El slug se deriva del nombre (sin tildes, un guion por separador) hasta que el administrador escribe el suyo, y cada variante toma su nombre del producto mas lo que la distingue.
+- El producto se crea como borrador, igual que antes por API, asi que no aparece en la tienda hasta que alguien lo pasa a activo desde su ficha.
+- El formulario abre con un boton "¿Como creo un producto?" que despliega el paso a paso para quien nunca ha cargado uno: que es el slug, que decide la categoria, por que la foto va vertical, cuando hace falta mas de una variante, como se escribe el precio y que hay que pasarlo a activo para publicarlo, mas los dos errores mas comunes (slug o SKU repetido, y una foto que el navegador no puede leer).
+- El panel tambien crea colecciones (`POST /api/admin/collections`, formulario "Nueva coleccion" junto al de productos): nombre, slug, frase corta, descripcion, portada y si se destaca en el inicio. Se guarda con la fecha del momento, porque el listado ordena por destacada y luego por fecha. Al crearla aparece de inmediato en el desplegable de coleccion del formulario de producto, sin recargar, porque las dos vistas comparten la misma etiqueta de cache.
+- La imagen viaja como data URL y se guarda en la base, como ya se hace con la foto de perfil y con las del diseno personalizado: el navegador no puede escribir en el disco del contenedor y la tienda todavia no tiene almacenamiento de archivos. El navegador la reduce a 1200px antes de enviarla y `CATALOG_IMAGE_MAX_CHARACTERS` limita el texto en la API. Los cuatro esquemas de imagen (avatar, diseno, producto y portada de coleccion) pasan a compartir un solo validador, que solo cambia de tope.
+- `toThumbUrl` no le inventa un `-thumb` a una imagen guardada en la base, y el `srcSet` de dos tamanos solo se emite cuando existe el archivo pequeno; antes las tres vistas repetian esa cadena.
+- Bug: al abrir el panel de administracion no se veian las imagenes. Los productos de seeds antiguos apuntan a `/placeholders/*.svg`, archivos que nunca se publicaron, asi que cada ficha mostraba el icono de imagen rota. Ahora una imagen que no carga, o un producto sin imagen, muestran un recuadro neutro; de paso eso arregla que un producto sin foto dejaba el formulario aplastado en los 84px reservados para la miniatura.
+
 ## Termo Kemono en el catalogo y la ficha de linea en el Hero
 
 - Llegaron dos fichas de diseno nuevas. La del termo Kemono es la ficha de un producto, asi que entra al catalogo: termo de acero inoxidable de 750 ml, cuatro colores (negro, blanco hueso, azul noche y verde olivo), en accesorios dentro de Wildspirit. Su imagen sale recortada de esa misma ficha, centrada sobre lienzo vertical 4:5 y servida en 1200px y 480px como el resto.

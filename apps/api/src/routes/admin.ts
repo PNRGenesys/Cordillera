@@ -7,7 +7,7 @@ import { availableUnits } from '../db/queries.js'
 import { categories, collections, customers, inventoryItems, inventoryMovements, inventoryReservations, orderItems, orders, productImages, productVariants, products } from '../db/schema.js'
 import { DomainError } from '../errors.js'
 import { routeDoc } from '../openapi.js'
-import { customerRoleUpdateSchema, idParamSchema, inventoryAdjustmentSchema, orderUpdateSchema, productCreateSchema, productDiscountSchema, productUpdateSchema, variantUpdateSchema } from '../schemas.js'
+import { collectionCreateSchema, customerRoleUpdateSchema, idParamSchema, inventoryAdjustmentSchema, orderUpdateSchema, productCreateSchema, productDiscountSchema, productUpdateSchema, variantUpdateSchema } from '../schemas.js'
 
 type OrderStatus = (typeof orders.$inferSelect)['status']
 
@@ -208,6 +208,7 @@ export function registerAdminRoutes(app: FastifyInstance): void {
         categoryId: input.categoryId, collectionId: input.collectionId, release: input.release, status: 'draft',
       }).returning()
       if (!created) throw new Error('Product insert returned no row')
+      if (input.image) await tx.insert(productImages).values({ productId: created.id, url: input.image, alt: input.name, position: 0 })
       for (const variant of input.variants) {
         const [createdVariant] = await tx.insert(productVariants).values({ productId: created.id, sku: variant.sku, name: variant.name, priceCents: variant.priceCents, color: variant.color, size: variant.size }).returning()
         if (!createdVariant) throw new Error(`Variant insert for SKU ${variant.sku} returned no row`)
@@ -218,6 +219,20 @@ export function registerAdminRoutes(app: FastifyInstance): void {
       return created
     })
     return reply.code(201).send(product)
+  })
+
+  /**
+   * A collection groups a release, so it is created with today's date: the storefront orders them by
+   * `featured` and then by `releasedAt`, and a new one is the most recent thing the store has.
+   */
+  app.post('/api/admin/collections', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'Create a collection', body: collectionCreateSchema }) }, async (request, reply) => {
+    const input = collectionCreateSchema.parse(request.body)
+    const [created] = await db.insert(collections).values({
+      name: input.name, slug: input.slug, tagline: input.tagline, description: input.description,
+      featured: input.featured, heroImageUrl: input.heroImage, releasedAt: new Date(),
+    }).returning()
+    if (!created) throw new Error('Collection insert returned no row')
+    return reply.code(201).send(created)
   })
 
   app.get('/api/admin/orders', { preHandler: guard, schema: routeDoc({ tags: ['admin'], summary: 'List orders' }) }, async () => findAdminOrders())

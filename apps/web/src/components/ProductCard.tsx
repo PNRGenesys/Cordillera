@@ -1,6 +1,6 @@
 import { styled } from '@linaria/react'
 import { Link } from 'react-router-dom'
-import { toThumbUrl } from '../lib/image'
+import { toSrcSet } from '../lib/image'
 import { useTranslation } from '../lib/use-translation'
 import type { CatalogProductSummary } from '../store/catalog-api'
 import { Price } from './Price'
@@ -98,7 +98,7 @@ export function ProductCard({ product }: ProductCardProps) {
         {product.imageUrl ? (
           <img
             src={product.imageUrl}
-            srcSet={`${toThumbUrl(product.imageUrl)} 480w, ${product.imageUrl} 1200w`}
+            srcSet={toSrcSet(product.imageUrl)}
             sizes="(max-width: 900px) 45vw, 22vw"
             alt={product.name}
             loading="lazy"

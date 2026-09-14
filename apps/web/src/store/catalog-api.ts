@@ -280,6 +280,28 @@ export type AdminCustomer = { id: string; email: string; firstName: string | nul
 export type CustomerRoleUpdate = { id: string; role: CustomerRole }
 
 export type ProductUpdate = { name?: string; description?: string; composition?: string; status?: ProductStatus; release?: ProductRelease }
+export type ProductVariantCreate = { sku: string; name: string; priceCents: number; color?: string; size?: string; initialStock: number }
+/** `image` is a data URL; the store has no file storage yet, so the picture is kept in the database. */
+export type ProductCreate = {
+  name: string
+  slug: string
+  description?: string
+  composition?: string
+  categoryId?: string
+  collectionId?: string
+  release: ProductRelease
+  image?: string
+  variants: ProductVariantCreate[]
+}
+/** `heroImage` is a data URL, for the same reason as a product picture. */
+export type CollectionCreate = {
+  name: string
+  slug: string
+  tagline?: string
+  description?: string
+  featured: boolean
+  heroImage?: string
+}
 export type ProductDiscount = { id: string; discountPercent: number }
 export type DiscountedVariant = { id: string; priceCents: number; compareAtPriceCents: number | null }
 export type VariantUpdate = { name?: string; color?: string; size?: string; priceCents?: number; compareAtPriceCents?: number }
@@ -367,6 +389,14 @@ export const catalogApi = createApi({
     getAdminProducts: build.query<AdminProduct[], void>({
       query: () => 'admin/products',
       providesTags: ['Admin'],
+    }),
+    createAdminProduct: build.mutation<AdminProduct, ProductCreate>({
+      query: (body) => ({ url: 'admin/products', method: 'POST', body }),
+      invalidatesTags: ['Admin', 'Catalog'],
+    }),
+    createAdminCollection: build.mutation<Collection, CollectionCreate>({
+      query: (body) => ({ url: 'admin/collections', method: 'POST', body }),
+      invalidatesTags: ['Admin', 'Catalog'],
     }),
     updateAdminProduct: build.mutation<AdminProduct, { id: string; changes: ProductUpdate }>({
       query: ({ id, changes }) => ({ url: `admin/products/${id}`, method: 'PATCH', body: changes }),
@@ -468,6 +498,8 @@ export const {
   useLogoutMutation,
   useUpdateProfileMutation,
   useGetAdminProductsQuery,
+  useCreateAdminCollectionMutation,
+  useCreateAdminProductMutation,
   useUpdateAdminProductMutation,
   useUpdateAdminVariantMutation,
   useApplyProductDiscountMutation,

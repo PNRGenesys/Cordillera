@@ -4,7 +4,7 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type { FastifyInstance } from 'fastify'
 import { buildApp } from '../app.js'
 import { db } from '../db/client.js'
-import { carts, customers, inventoryItems, inventoryMovements, orders, productVariants, products } from '../db/schema.js'
+import { carts, collections, customers, inventoryItems, inventoryMovements, orders, productVariants, products } from '../db/schema.js'
 
 /** Integration tests: they need the local PostgreSQL instance from docker compose. */
 
@@ -206,5 +206,89 @@ describe('admin customers', () => {
     expect(response.json()).toMatchObject({ email: SHOPPER_EMAIL, role: 'artist' })
 
     await db.update(customers).set({ role: 'customer' }).where(eq(customers.id, shopperId))
+  })
+})
+
+describe('admin product creation', () => {
+  const CREATED_SLUG = 'admin-created-product'
+  const CREATED_SKU = 'ADMIN-CREATED-SKU'
+  const CREATED_STOCK = 4
+  /** Smallest valid JPEG data URL; the route only checks the shape of the text, not the pixels. */
+  const PICTURE = 'data:image/jpeg;base64,/9j/4AAQSkZJRgABAQAAAQABAAD='
+
+  const payload = {
+    name: 'Admin Created Product',
+    slug: CREATED_SLUG,
+    description: 'Created from the admin panel',
+    composition: '100% cotton',
+    release: 'available',
+    image: PICTURE,
+    variants: [{ sku: CREATED_SKU, name: 'Admin Created Product Black S', color: 'Black', size: 'S', priceCents: 1_500_00, initialStock: CREATED_STOCK }],
+  }
+
+  afterAll(async () => {
+    const [created] = await db.select({ id: products.id }).from(products).where(eq(products.slug, CREATED_SLUG))
+    if (!created) return
+    const items = await db.select({ id: inventoryItems.id }).from(inventoryItems)
+      .innerJoin(productVariants, eq(productVariants.id, inventoryItems.variantId))
+      .where(eq(productVariants.productId, created.id))
+    await db.delete(inventoryMovements).where(inArray(inventoryMovements.inventoryItemId, items.map((item) => item.id)))
+    await db.delete(products).where(eq(products.id, created.id))
+  })
+
+  it('creates a draft product with its picture, its variant and its initial stock', async () => {
+    const response = await app.inject({ method: 'POST', url: '/api/admin/products', headers: { cookie: adminCookie }, payload })
+    expect(response.statusCode).toBe(201)
+    expect(response.json()).toMatchObject({ slug: CREATED_SLUG, status: 'draft' })
+
+    const listed = await app.inject({ method: 'GET', url: '/api/admin/products', headers: { cookie: adminCookie } })
+    const created = required(listed.json<(AdminProduct & { imageUrl: string | null })[]>().find((entry) => entry.slug === CREATED_SLUG), CREATED_SLUG)
+    expect(created.imageUrl).toBe(PICTURE)
+    expect(created.variants[0]).toMatchObject({ sku: CREATED_SKU, onHand: CREATED_STOCK, availableUnits: CREATED_STOCK })
+  })
+
+  it('rejects a picture that is not a data URL, and a customer cannot create products', async () => {
+    const badPicture = await app.inject({
+      method: 'POST', url: '/api/admin/products', headers: { cookie: adminCookie },
+      payload: { ...payload, slug: 'admin-created-rejected', image: 'https://example.test/picture.jpg' },
+    })
+    expect(badPicture.statusCode).toBe(400)
+
+    const forbidden = await app.inject({ method: 'POST', url: '/api/admin/products', headers: { cookie: shopperCookie }, payload })
+    expect(forbidden.statusCode).toBe(403)
+  })
+})
+
+describe('admin collections', () => {
+  const CREATED_SLUG = 'admin-created-collection'
+
+  afterAll(async () => {
+    await db.delete(collections).where(eq(collections.slug, CREATED_SLUG))
+  })
+
+  it('creates a collection dated today, so the storefront lists it first', async () => {
+    const before = Date.now()
+    const response = await app.inject({
+      method: 'POST', url: '/api/admin/collections', headers: { cookie: adminCookie },
+      payload: { name: 'Admin Created Collection', slug: CREATED_SLUG, tagline: 'Created from the panel', featured: false },
+    })
+
+    expect(response.statusCode).toBe(201)
+    const created = response.json<{ slug: string; tagline: string; featured: boolean; releasedAt: string }>()
+    expect(created).toMatchObject({ slug: CREATED_SLUG, tagline: 'Created from the panel', featured: false })
+    expect(new Date(created.releasedAt).getTime()).toBeGreaterThanOrEqual(before - 1000)
+
+    const listed = await app.inject({ method: 'GET', url: '/api/collections' })
+    expect(listed.json<{ slug: string }[]>().some((entry) => entry.slug === CREATED_SLUG)).toBe(true)
+  })
+
+  it('rejects a repeated slug and a customer that is not an administrator', async () => {
+    const payload = { name: 'Another One', slug: CREATED_SLUG, featured: false }
+
+    const forbidden = await app.inject({ method: 'POST', url: '/api/admin/collections', headers: { cookie: shopperCookie }, payload })
+    expect(forbidden.statusCode).toBe(403)
+
+    const repeated = await app.inject({ method: 'POST', url: '/api/admin/collections', headers: { cookie: adminCookie }, payload })
+    expect(repeated.statusCode).toBeGreaterThanOrEqual(400)
   })
 })

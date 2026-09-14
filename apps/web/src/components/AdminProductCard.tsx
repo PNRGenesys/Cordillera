@@ -69,6 +69,17 @@ const Thumb = styled.img`
   object-fit: cover;
   width: 100%;
 `
+/**
+ * Stands in when a product has no picture, or when the one it points at is missing: products seeded
+ * long ago still reference files that were never shipped, and a broken image icon in every card made
+ * the list look broken. It also keeps the first column of `Head` filled, so the form beside it does
+ * not get squeezed into the 84px reserved for the picture.
+ */
+const ThumbPlaceholder = styled.div`
+  aspect-ratio: 1;
+  background: var(--color-surface);
+  width: 100%;
+`
 const Slug = styled.p`
   color: var(--color-accent);
   font-size: 0.72rem;
@@ -125,6 +136,7 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
   const [status, setStatus] = useState<ProductStatus>(product.status)
   const [release, setRelease] = useState<ProductRelease>(product.release)
   const [discountPercent, setDiscountPercent] = useState(currentDiscountPercent(product))
+  const [imageFailed, setImageFailed] = useState(false)
 
   function saveProduct(event: FormEvent<HTMLFormElement>): void {
     event.preventDefault()
@@ -141,7 +153,9 @@ export function AdminProductCard({ product }: AdminProductCardProps) {
       <Summary>{`${product.name} — ${t(statusKeys[product.status])}`}</Summary>
       <Body>
         <Head>
-          {product.imageUrl && <Thumb src={toThumbUrl(product.imageUrl)} alt={product.name} loading="lazy" decoding="async" />}
+          {product.imageUrl && !imageFailed
+            ? <Thumb src={toThumbUrl(product.imageUrl)} alt={product.name} loading="lazy" decoding="async" onError={() => setImageFailed(true)} />
+            : <ThumbPlaceholder aria-hidden="true" />}
           <div>
             <Slug>{product.slug}</Slug>
             <Form onSubmit={saveProduct}>
